@@ -25,13 +25,21 @@
   --color-ink-900: oklch(0.2 0.022 254);
 
   --color-success-500: oklch(0.64 0.17 152);
-  --color-success-600: oklch(0.53 0.155 152);
+  --color-success-600: oklch(0.5 0.15 152);
   --color-warning-500: oklch(0.72 0.155 78);
   --color-warning-600: oklch(0.62 0.15 78);
   --color-warning-700: oklch(0.54 0.145 78);
   --color-danger-500: oklch(0.62 0.22 27);
   --color-danger-600: oklch(0.54 0.21 27);
+  --color-danger-700: oklch(0.49 0.2 27);
   --color-info-500: oklch(0.62 0.14 250);
+  --color-info-600: oklch(0.48 0.14 250);
+
+  --color-neutral-soft: oklch(0.966 0.001 254);
+  --color-info-soft: oklch(0.953 0.016 246);
+  --color-success-soft: oklch(0.951 0.025 165);
+  --color-warning-soft: oklch(0.964 0.025 87);
+  --color-danger-soft: oklch(0.945 0.024 18);
 
   --color-chart-1: oklch(0.6 0.16 152);
   --color-chart-2: oklch(0.58 0.17 254);
@@ -83,9 +91,10 @@
   --color-primary-subtle: var(--color-brand-50);
 
   --color-success: var(--color-success-600);
-  --color-warning: var(--color-warning-600);
+  --color-warning: var(--color-warning-700);
   --color-danger: var(--color-danger-600);
-  --color-info: var(--color-info-500);
+  --color-danger-hover: var(--color-danger-700);
+  --color-info: var(--color-info-600);
   --color-focus: var(--color-brand-600);
 }
 
