@@ -1,26 +1,147 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-brand-50: oklch(0.97 0.014 254);
+  --color-brand-100: oklch(0.93 0.032 254);
+  --color-brand-200: oklch(0.87 0.062 254);
+  --color-brand-300: oklch(0.8 0.098 254);
+  --color-brand-400: oklch(0.71 0.14 254);
+  --color-brand-500: oklch(0.62 0.18 254);
+  --color-brand-600: oklch(0.55 0.2 254);
+  --color-brand-700: oklch(0.48 0.19 254);
+  --color-brand-800: oklch(0.4 0.16 254);
+  --color-brand-900: oklch(0.32 0.12 254);
+  --color-brand-950: oklch(0.22 0.08 254);
+
+  --color-ink-50: oklch(0.98 0.002 254);
+  --color-ink-100: oklch(0.96 0.004 254);
+  --color-ink-200: oklch(0.92 0.006 254);
+  --color-ink-300: oklch(0.86 0.008 254);
+  --color-ink-400: oklch(0.66 0.012 254);
+  --color-ink-500: oklch(0.55 0.014 254);
+  --color-ink-600: oklch(0.48 0.016 254);
+  --color-ink-700: oklch(0.38 0.018 254);
+  --color-ink-800: oklch(0.28 0.02 254);
+  --color-ink-900: oklch(0.2 0.022 254);
+
+  --color-success-500: oklch(0.64 0.17 152);
+  --color-success-600: oklch(0.53 0.155 152);
+  --color-warning-500: oklch(0.72 0.155 78);
+  --color-warning-600: oklch(0.62 0.15 78);
+  --color-warning-700: oklch(0.54 0.145 78);
+  --color-danger-500: oklch(0.62 0.22 27);
+  --color-danger-600: oklch(0.54 0.21 27);
+  --color-info-500: oklch(0.62 0.14 250);
+
+  --color-chart-1: oklch(0.6 0.16 152);
+  --color-chart-2: oklch(0.58 0.17 254);
+  --color-chart-3: oklch(0.6 0.2 27);
+  --color-chart-4: oklch(0.64 0.12 220);
+  --color-chart-5: oklch(0.66 0.14 78);
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+
+  --shadow-card:
+    0 1px 2px 0 oklch(0.2 0.02 254 / 0.04),
+    0 1px 3px 0 oklch(0.2 0.02 254 / 0.06);
+  --shadow-raised:
+    0 2px 4px -1px oklch(0.2 0.02 254 / 0.06),
+    0 4px 8px -2px oklch(0.2 0.02 254 / 0.08);
+
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+
+  --font-mono:
+    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+    monospace;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans:
+    var(--font-jakarta), ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
+@theme {
+  --color-background: var(--color-ink-50);
+  --color-surface: oklch(1 0 0);
+  --color-surface-raised: var(--color-ink-100);
+  --color-border: var(--color-ink-200);
+  --color-border-strong: var(--color-ink-400);
+
+  --color-foreground: var(--color-ink-800);
+  --color-foreground-muted: var(--color-ink-600);
+  --color-foreground-subtle: var(--color-ink-500);
+
+  --color-primary: var(--color-brand-600);
+  --color-primary-hover: var(--color-brand-700);
+  --color-primary-foreground: oklch(1 0 0);
+  --color-primary-subtle: var(--color-brand-50);
+
+  --color-success: var(--color-success-600);
+  --color-warning: var(--color-warning-600);
+  --color-danger: var(--color-danger-600);
+  --color-info: var(--color-info-500);
+  --color-focus: var(--color-brand-600);
+}
+
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    color-scheme: light;
+  }
+
+  *,
+  ::before,
+  ::after {
+    border-color: var(--color-border);
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-focus);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-brand-200);
+    color: var(--color-ink-900);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@utility bg-header-gradient {
+  background-image: linear-gradient(
+    160deg,
+    var(--color-brand-600) 0%,
+    var(--color-brand-700) 55%,
+    var(--color-brand-800) 100%
+  );
+}
+
+@utility pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+@utility pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
 }
