@@ -8,6 +8,7 @@ import {
 import {
   checkTransition,
   type FinancingStatus,
+  isFinancingStatus,
 } from "@/domain/financing/state-machine";
 import { type Rupiah, rupiah } from "@/domain/money/money";
 import { openAuthDatabase } from "@/lib/db/sqlite";
@@ -50,6 +51,16 @@ export type DraftInput = {
   readonly institutionId?: string | null;
   readonly requestedAmount?: Rupiah | null;
   readonly academicPurpose?: FinancingPurpose | null;
+};
+
+export type FacilityTransition = {
+  readonly status: FinancingStatus;
+  readonly occurredAt: string;
+};
+
+export type FacilityTimelineDetail = {
+  readonly facility: FinancingFacility;
+  readonly transitions: readonly FacilityTransition[];
 };
 
 type FacilityRow = {
@@ -116,6 +127,12 @@ const CANCEL_FACILITY = `UPDATE financing_facilities
 SET status = 'cancelled', closed_at = ?
 WHERE id = ? AND status = ?`;
 
+const SELECT_TRANSITIONS = `SELECT after_json, occurred_at FROM audit_logs
+WHERE entity_type = 'financing_facility'
+  AND action = 'financing.status_changed'
+  AND entity_id = ?
+ORDER BY occurred_at, id`;
+
 function toFacility(row: FacilityRow): FinancingFacility {
   return {
     id: row.id,
@@ -170,6 +187,21 @@ function jakartaYearOf(at: Date): number {
   return Number(plainDate.slice(0, 4));
 }
 
+type TransitionRow = {
+  after_json: string | null;
+  occurred_at: string;
+};
+
+function transitionStatusOf(raw: string | null): FinancingStatus | null {
+  if (raw === null) return null;
+  try {
+    const parsed = JSON.parse(raw) as { status?: unknown };
+    return isFinancingStatus(parsed.status) ? parsed.status : null;
+  } catch {
+    return null;
+  }
+}
+
 function financingWriteError(error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error);
   if (message.includes("financing_facilities.student_id")) {
@@ -204,6 +236,27 @@ export async function getMyDraft(): Promise<FinancingFacility | null> {
   const user = await getCurrentUser();
   if (user === null) return null;
   return selectLatestDraft(openAuthDatabase(), user.id);
+}
+
+export async function getMyFacilityTimeline(
+  facilityId: string,
+): Promise<FacilityTimelineDetail | null> {
+  const user = await getCurrentUser();
+  if (user === null) return null;
+  const database = openAuthDatabase();
+  const facility = selectFacility(database, facilityId, user.id);
+  if (facility === null) return null;
+  const rows = database
+    .prepare(SELECT_TRANSITIONS)
+    .all(facilityId) as TransitionRow[];
+  const transitions: FacilityTransition[] = [];
+  for (const row of rows) {
+    const status = transitionStatusOf(row.after_json);
+    if (status !== null) {
+      transitions.push({ status, occurredAt: row.occurred_at });
+    }
+  }
+  return { facility, transitions };
 }
 
 export async function saveMyDraft(

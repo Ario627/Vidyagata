@@ -54,7 +54,19 @@ function FacilityCard({ facility, institutionName }: FacilityCardProps) {
             Lanjutkan pengajuan
           </Link>
         </CardContent>
-      ) : null}
+      ) : (
+        <CardContent>
+          <Link
+            href={`/pembiayaan/${facility.id}` as Route}
+            className={cn(
+              buttonVariants({ variant: "secondary", size: "sm" }),
+              "w-full",
+            )}
+          >
+            Lihat detail
+          </Link>
+        </CardContent>
+      )}
     </Card>
   );
 }

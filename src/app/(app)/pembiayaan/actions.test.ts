@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { openAuthDatabase } from "@/lib/db/sqlite";
 import {
+  cancelApplicationAction,
   grantConsentAction,
   saveDraftAction,
   submitApplicationAction,
@@ -112,6 +113,22 @@ describe("submitApplicationAction", () => {
 
   it("meneruskan kegagalan domain sebagai kode, bukan pesan mentah", async () => {
     const result = await submitApplicationAction("01J8ZZZZZZZZZZZZZZZZZZZZZY");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("facility_not_found");
+  });
+});
+
+describe("cancelApplicationAction", () => {
+  it("menolak id fasilitas yang bukan ULID", async () => {
+    const result = await cancelApplicationAction("bukan-ulid");
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.code).toBe("invalid_input");
+  });
+
+  it("mengembalikan kode domain saat pengajuan sudah tidak bisa dibatalkan", async () => {
+    const result = await cancelApplicationAction("01J8ZZZZZZZZZZZZZZZZZZZZZY");
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.code).toBe("facility_not_found");

@@ -2,7 +2,11 @@
 
 import { z } from "zod";
 import { recordConsent } from "@/data/consents";
-import { saveMyDraft, submitMyFacility } from "@/data/financing";
+import {
+  cancelMyFacility,
+  saveMyDraft,
+  submitMyFacility,
+} from "@/data/financing";
 import { ApplyDraftSchema } from "@/schemas/financing";
 
 export type DraftSaveResult =
@@ -53,6 +57,19 @@ export async function submitApplicationAction(
   if (!parsed.success) return { ok: false, code: "invalid_input" };
   try {
     await submitMyFacility(parsed.data);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, code: errorCode(error) };
+  }
+}
+
+export async function cancelApplicationAction(
+  facilityId: unknown,
+): Promise<ActionResult> {
+  const parsed = FacilityIdInput.safeParse(facilityId);
+  if (!parsed.success) return { ok: false, code: "invalid_input" };
+  try {
+    await cancelMyFacility(parsed.data);
     return { ok: true };
   } catch (error) {
     return { ok: false, code: errorCode(error) };
