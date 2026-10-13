@@ -75,7 +75,12 @@ const LENDER_SEEDS: readonly LenderSeed[] = [
     name: "Mitra Pembiayaan Pilot",
     licenseType: "other",
     licenseNumber: null,
-    riskAppetite: { max_amount: 15_000_000, max_tenor_months: 60 },
+    riskAppetite: {
+      max_amount: 15_000_000,
+      max_tenor_months: 60,
+      margin_rate_bp: 1200,
+      service_fee_rate_bp: 200,
+    },
   },
 ];
 
@@ -90,6 +95,10 @@ const INSERT_LENDER = `INSERT INTO lenders (
   created_at, updated_at
 ) VALUES (?, ?, ?, ?, 'pilot', ?, ?, ?)
 ON CONFLICT(name) DO NOTHING`;
+
+const BACKFILL_LENDER_APPETITE = `UPDATE lenders
+SET risk_appetite_json = ?
+WHERE name = ? AND json_extract(risk_appetite_json, '$.margin_rate_bp') IS NULL`;
 
 export function applyIdentitySeeds(database: DatabaseSync): void {
   const createdAt = new Date().toISOString();
@@ -117,5 +126,9 @@ export function applyIdentitySeeds(database: DatabaseSync): void {
       createdAt,
       createdAt,
     );
+  }
+  const backfillLender = database.prepare(BACKFILL_LENDER_APPETITE);
+  for (const seed of LENDER_SEEDS) {
+    backfillLender.run(JSON.stringify(seed.riskAppetite), seed.name);
   }
 }

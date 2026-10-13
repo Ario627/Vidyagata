@@ -5,6 +5,7 @@ const SECURE_SESSION_COOKIE = `__Secure-${SESSION_COOKIE}`;
 
 const SESSION_GUARDED_ROUTES = [
   "/dashboard",
+  "/pembiayaan",
   "/kerja",
   "/tagihan",
   "/riwayat",
@@ -85,6 +86,7 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     "/dashboard/:path*",
+    "/pembiayaan/:path*",
     "/kerja/:path*",
     "/tagihan/:path*",
     "/riwayat/:path*",

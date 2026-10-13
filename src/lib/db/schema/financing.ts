@@ -1,3 +1,8 @@
+import type { DatabaseSync } from "node:sqlite";
+
+const ACTIVE_FACILITY_STATUSES_SQL =
+  "'submitted', 'under_review', 'forwarded_to_lender', 'approved', 'signed', 'disbursed', 'active'";
+
 const FINANCING_FACILITIES = `
 CREATE TABLE IF NOT EXISTS financing_facilities (
   id TEXT PRIMARY KEY,
@@ -51,7 +56,7 @@ CREATE TABLE IF NOT EXISTS financing_facilities (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_financing_facilities_student_active
   ON financing_facilities (student_id)
-  WHERE status IN ('submitted', 'under_review', 'approved', 'signed', 'disbursed', 'active');
+  WHERE status IN (${ACTIVE_FACILITY_STATUSES_SQL});
 CREATE INDEX IF NOT EXISTS idx_financing_facilities_status_created_at
   ON financing_facilities (status, created_at);
 CREATE INDEX IF NOT EXISTS idx_financing_facilities_student_created_at
@@ -149,3 +154,32 @@ END;
 `;
 
 export const FINANCING_SCHEMA = `${FINANCING_FACILITIES}\n${ELIGIBILITY_ASSESSMENTS}\n${REPAYMENT_SCHEDULES}\n${INSTALLMENTS}`;
+
+export function migrateFinancingIndexes(database: DatabaseSync): void {
+  const row = database
+    .prepare(
+      "SELECT sql FROM sqlite_master WHERE type = 'index' AND name = 'uq_financing_facilities_student_active'",
+    )
+    .get() as { sql: string | null } | undefined;
+  if (
+    row === undefined ||
+    row.sql === null ||
+    row.sql.includes("forwarded_to_lender")
+  ) {
+    return;
+  }
+  database.exec("DROP INDEX IF EXISTS uq_financing_facilities_student_active");
+  try {
+    database.exec(
+      `CREATE UNIQUE INDEX IF NOT EXISTS uq_financing_facilities_student_active ON financing_facilities (student_id) WHERE status IN (${ACTIVE_FACILITY_STATUSES_SQL})`,
+    );
+  } catch (error) {
+    database.exec(
+      "CREATE UNIQUE INDEX IF NOT EXISTS uq_financing_facilities_student_active ON financing_facilities (student_id) WHERE status IN ('submitted', 'under_review', 'approved', 'signed', 'disbursed', 'active')",
+    );
+    console.error(
+      "Migrasi index fasilitas aktif tertunda: ada data lama yang melanggar I2",
+      error,
+    );
+  }
+}

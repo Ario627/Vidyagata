@@ -200,6 +200,12 @@ export async function listMyFacilities(): Promise<
   return rows.map(toFacility);
 }
 
+export async function getMyDraft(): Promise<FinancingFacility | null> {
+  const user = await getCurrentUser();
+  if (user === null) return null;
+  return selectLatestDraft(openAuthDatabase(), user.id);
+}
+
 export async function saveMyDraft(
   input: DraftInput,
 ): Promise<FinancingFacility> {

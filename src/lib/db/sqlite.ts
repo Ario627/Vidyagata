@@ -2,7 +2,7 @@ import "server-only";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { FINANCING_SCHEMA } from "./schema/financing";
+import { FINANCING_SCHEMA, migrateFinancingIndexes } from "./schema/financing";
 import { IDENTITY_SCHEMA } from "./schema/identity";
 import { PLATFORM_SCHEMA } from "./schema/platform";
 import { REGULATORY_SCHEMA } from "./schema/regulatory";
@@ -158,6 +158,7 @@ export function openAuthDatabase(): DatabaseSync {
   execWithRetry(database, IDENTITY_SCHEMA);
   execWithRetry(database, REGULATORY_SCHEMA);
   execWithRetry(database, FINANCING_SCHEMA);
+  migrateFinancingIndexes(database);
   execWithRetry(database, SEQUENCE_SCHEMA);
   ensureAdditiveColumns(database);
   applyPlatformSeeds(database);

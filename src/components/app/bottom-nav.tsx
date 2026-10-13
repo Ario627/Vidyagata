@@ -6,6 +6,7 @@ import {
   type LucideIcon,
   ReceiptText,
   UserRound,
+  Wallet,
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
@@ -20,6 +21,7 @@ type NavItem = {
 
 const NAV_ITEMS: readonly NavItem[] = [
   { href: "/dashboard" as Route, label: "Beranda", icon: House },
+  { href: "/pembiayaan" as Route, label: "Pembiayaan", icon: Wallet },
   { href: "/kerja", label: "Kerja", icon: Briefcase },
   { href: "/tagihan", label: "Tagihan", icon: ReceiptText },
   { href: "/profil", label: "Profil", icon: UserRound },
