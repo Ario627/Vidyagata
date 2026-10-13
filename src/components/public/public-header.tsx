@@ -7,6 +7,7 @@ function PublicHeader() {
       <div className="mx-auto flex h-14 w-full max-w-5xl items-center justify-between px-4 sm:px-6">
         <Link
           href="/dashboard"
+          data-brand-mark=""
           className="text-lg font-semibold tracking-tight text-foreground"
         >
           Vidyagata

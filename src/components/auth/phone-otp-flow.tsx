@@ -1,6 +1,7 @@
 "use client";
 
 import { OTPField } from "@base-ui/react/otp-field";
+import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ type PhoneOtpFlowProps = {
   mode: AuthMode;
   resendCooldownSeconds: number;
   ttlMinutes: number;
+  nextPath?: string | null;
 };
 
 type AuthError = {
@@ -82,6 +84,7 @@ function PhoneOtpFlow({
   mode,
   resendCooldownSeconds,
   ttlMinutes,
+  nextPath = null,
 }: PhoneOtpFlowProps) {
   const router = useRouter();
   const [step, setStep] = useState<"phone" | "code">("phone");
@@ -161,8 +164,7 @@ function PhoneOtpFlow({
     if (mode === "daftar" && trimmedName.length > 0) {
       await authClient.updateUser({ name: trimmedName });
     }
-    router.replace("/dashboard");
-    router.refresh();
+    router.replace((nextPath ?? "/dashboard") as Route);
   }
 
   function handleChangePhone() {

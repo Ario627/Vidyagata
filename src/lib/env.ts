@@ -1,6 +1,10 @@
 import "server-only";
 import { z } from "zod";
 import { err, ok, type Result } from "@/domain/shared/result";
+import {
+  EMAIL_PROVIDERS,
+  type EmailProviderId,
+} from "@/integrations/email/gateway";
 import { SMS_PROVIDERS, type SmsProviderId } from "@/integrations/sms/gateway";
 
 export type ServerEnv = {
@@ -8,6 +12,9 @@ export type ServerEnv = {
   readonly VERCEL_ENV?: "development" | "preview" | "production" | undefined;
   readonly OTP_PEPPER: string;
   readonly SMS_PROVIDER: SmsProviderId;
+  readonly EMAIL_PROVIDER: EmailProviderId;
+  readonly SMTP_URL?: string | undefined;
+  readonly EMAIL_FROM: string;
 };
 
 export type ServerEnvIssue = string;
@@ -19,6 +26,17 @@ const serverEnvSchema = z.object({
   VERCEL_ENV: z.enum(["development", "preview", "production"]).optional(),
   OTP_PEPPER: z.string().min(32, { error: "OTP_PEPPER minimal 32 karakter" }),
   SMS_PROVIDER: z.enum(SMS_PROVIDERS).default("console"),
+  EMAIL_PROVIDER: z.enum(EMAIL_PROVIDERS).default("console"),
+  SMTP_URL: z
+    .string()
+    .regex(/^smtps?:\/\//, {
+      error: "SMTP_URL harus diawali smtp:// atau smtps://",
+    })
+    .optional(),
+  EMAIL_FROM: z
+    .string()
+    .min(3, { error: "EMAIL_FROM minimal 3 karakter" })
+    .default("Vidyagata <no-reply@vidyagata.id>"),
 });
 
 function toIssueMessages(error: z.ZodError): string[] {
@@ -37,6 +55,18 @@ export function parseServerEnv(
     parsed.data.SMS_PROVIDER === "console"
   ) {
     return err(["SMS_PROVIDER: sink console dilarang di produksi Vercel"]);
+  }
+  if (
+    parsed.data.VERCEL_ENV === "production" &&
+    parsed.data.EMAIL_PROVIDER === "console"
+  ) {
+    return err(["EMAIL_PROVIDER: sink console dilarang di produksi Vercel"]);
+  }
+  if (
+    parsed.data.EMAIL_PROVIDER === "smtp" &&
+    parsed.data.SMTP_URL === undefined
+  ) {
+    return err(["SMTP_URL: wajib diisi kalau EMAIL_PROVIDER=smtp"]);
   }
   return ok(parsed.data);
 }

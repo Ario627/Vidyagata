@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Route } from "next";
 import Link from "next/link";
-import { PhoneOtpFlow } from "@/components/auth/phone-otp-flow";
+import { redirect } from "next/navigation";
+import { SignInPanel } from "@/components/auth/sign-in-panel";
 import { OTP_RESEND_COOLDOWN_MS, OTP_TTL_MS } from "@/lib/crypto/otp";
-
-export const ensureStatic = "navigation";
+import { safeNextPath } from "@/lib/next-path";
+import { getCurrentUser } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Masuk",
@@ -11,7 +12,16 @@ export const metadata: Metadata = {
     "Masuk ke Vidyagata dengan nomor HP. Kode verifikasi dikirim lewat SMS dan berlaku lima menit.",
 };
 
-export default function MasukPage() {
+export const instant = false;
+
+export default async function MasukPage({ searchParams }: PageProps<"/masuk">) {
+  const params = await searchParams;
+  const nextPath = safeNextPath(params.next);
+  const user = await getCurrentUser();
+  if (user !== null) {
+    redirect((nextPath ?? "/dashboard") as Route);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <header>
@@ -19,14 +29,14 @@ export default function MasukPage() {
           Masuk ke Vidyagata
         </h1>
         <p className="mt-2 text-sm text-foreground-muted">
-          Masukkan nomor HP kamu. Kalau nomor itu belum pernah dipakai, akun
-          baru langsung dibuat dan kamu masuk ke dashboard.
+          Masuk dengan nomor HP atau email. Nomor yang belum pernah dipakai
+          langsung membuat akun baru dan membawamu ke dashboard.
         </p>
       </header>
-      <PhoneOtpFlow
-        mode="masuk"
+      <SignInPanel
         resendCooldownSeconds={OTP_RESEND_COOLDOWN_MS / 1000}
         ttlMinutes={OTP_TTL_MS / 60_000}
+        nextPath={nextPath}
       />
       <p className="text-sm text-foreground-muted">
         Mau mengisi nama lengkap dulu?{" "}

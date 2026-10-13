@@ -13,6 +13,11 @@ const securityHeaders = [
   { key: "X-Permitted-Cross-Domain-Policies", value: "none" },
   { key: "Origin-Agent-Cluster", value: "?1" },
   {
+    key: "Content-Security-Policy",
+    value:
+      "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+  },
+  {
     key: "Permissions-Policy",
     value:
       "camera=(self), publickey-credentials-get=(self), payment=(self), geolocation=(self), microphone=(), usb=(), serial=()",

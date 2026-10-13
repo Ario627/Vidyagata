@@ -9,7 +9,12 @@ export type PhoneNumber = string & { readonly [phoneBrand]: "PhoneNumber" };
 export const MAX_MONEY_AMOUNT = 1_000_000_000;
 
 const SUBSCRIBER_DIGITS = /^\d{8,11}$/;
+const CANONICAL_PHONE_NUMBER = /^\+628\d{8,11}$/;
 const SEPARATORS = /[\s().-]/g;
+
+export function isCanonicalPhoneNumber(value: string): boolean {
+  return CANONICAL_PHONE_NUMBER.test(value);
+}
 
 function canonicalizePhoneNumber(input: string): PhoneNumber | null {
   const stripped = input.replace(SEPARATORS, "");
