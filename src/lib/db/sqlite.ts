@@ -2,9 +2,12 @@ import "server-only";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { FINANCING_SCHEMA } from "./schema/financing";
 import { IDENTITY_SCHEMA } from "./schema/identity";
 import { PLATFORM_SCHEMA } from "./schema/platform";
 import { REGULATORY_SCHEMA } from "./schema/regulatory";
+import { SEQUENCE_SCHEMA } from "./schema/sequences";
+import { applyIdentitySeeds } from "./seed/identity";
 import { applyPlatformSeeds } from "./seed/platform";
 
 const DATA_DIRECTORY = ".data";
@@ -154,8 +157,11 @@ export function openAuthDatabase(): DatabaseSync {
   execWithRetry(database, PLATFORM_SCHEMA);
   execWithRetry(database, IDENTITY_SCHEMA);
   execWithRetry(database, REGULATORY_SCHEMA);
+  execWithRetry(database, FINANCING_SCHEMA);
+  execWithRetry(database, SEQUENCE_SCHEMA);
   ensureAdditiveColumns(database);
   applyPlatformSeeds(database);
+  applyIdentitySeeds(database);
   instance = database;
   return database;
 }
