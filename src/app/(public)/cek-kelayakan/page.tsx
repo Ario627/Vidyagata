@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function CekKelayakanPage() {
   return (
-    <main className="mx-auto w-full max-w-lg px-4 py-8 lg:max-w-4xl lg:py-12">
+    <div className="mx-auto w-full max-w-lg px-4 py-8 lg:max-w-4xl lg:py-12">
       <header className="lg:mx-auto lg:max-w-2xl lg:text-center">
         <p className="text-2xs font-semibold text-primary uppercase tracking-wider">
           Simulasi tanpa daftar
@@ -24,6 +24,6 @@ export default function CekKelayakanPage() {
         </p>
       </header>
       <SimulationTool className="mt-8" />
-    </main>
+    </div>
   );
 }

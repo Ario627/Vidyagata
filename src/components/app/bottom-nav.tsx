@@ -1,27 +1,35 @@
 "use client";
 
-import type { LucideIcon } from "lucide-react";
+import {
+  Briefcase,
+  House,
+  type LucideIcon,
+  ReceiptText,
+  UserRound,
+} from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
-type NavItem<T extends string = string> = {
-  readonly href: Route<T>;
+type NavItem = {
+  readonly href: Route;
   readonly label: string;
   readonly icon: LucideIcon;
 };
 
-type BottomNavProps<T extends string> = {
-  items: readonly NavItem<T>[];
-  className?: string;
-};
+const NAV_ITEMS: readonly NavItem[] = [
+  { href: "/dashboard" as Route, label: "Beranda", icon: House },
+  { href: "/kerja", label: "Kerja", icon: Briefcase },
+  { href: "/tagihan", label: "Tagihan", icon: ReceiptText },
+  { href: "/profil", label: "Profil", icon: UserRound },
+];
 
 function isActivePath(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function BottomNav<T extends string>({ items, className }: BottomNavProps<T>) {
+function BottomNav({ className }: { className?: string }) {
   const pathname = usePathname();
 
   return (
@@ -34,7 +42,7 @@ function BottomNav<T extends string>({ items, className }: BottomNavProps<T>) {
       )}
     >
       <ul className="mx-auto flex max-w-lg items-stretch">
-        {items.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const active = isActivePath(pathname, item.href);
           return (
             <li key={item.href} className="flex-1">
@@ -77,4 +85,3 @@ function BottomNav<T extends string>({ items, className }: BottomNavProps<T>) {
 }
 
 export { BottomNav, isActivePath };
-export type { BottomNavProps, NavItem };

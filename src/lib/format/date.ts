@@ -3,15 +3,56 @@ import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import type { PlainDate } from "../../domain/time/plain-date";
 
-const LONG = "d MMMM yyyy";
-const SHORT = "d MMM yyyy";
+const LONG_MONTHS = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+] as const;
+
+const SHORT_MONTHS = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "Mei",
+  "Jun",
+  "Jul",
+  "Agt",
+  "Sep",
+  "Okt",
+  "Nov",
+  "Des",
+] as const;
+
 const INSTANT = "d MMM yyyy, HH.mm";
 
-function toUtcDate(date: PlainDate): TZDate {
-  const year = Number(date.slice(0, 4));
-  const month = Number(date.slice(5, 7));
-  const day = Number(date.slice(8, 10));
-  return new TZDate(Date.UTC(year, month - 1, day), "UTC");
+function yearOf(date: PlainDate): number {
+  return Number(date.slice(0, 4));
+}
+
+function monthOf(date: PlainDate): number {
+  return Number(date.slice(5, 7)) - 1;
+}
+
+function dayOf(date: PlainDate): number {
+  return Number(date.slice(8, 10));
+}
+
+function monthName(months: readonly string[], index: number): string {
+  const name = months[index];
+  if (name === undefined) {
+    throw new RangeError(`Bulan di luar rentang: ${index + 1}`);
+  }
+  return name;
 }
 
 function toWibDate(instant: Date | string): TZDate {
@@ -23,11 +64,11 @@ function toWibDate(instant: Date | string): TZDate {
 }
 
 export function formatPlainDate(date: PlainDate): string {
-  return format(toUtcDate(date), LONG, { locale: localeId });
+  return `${dayOf(date)} ${monthName(LONG_MONTHS, monthOf(date))} ${yearOf(date)}`;
 }
 
 export function formatPlainDateShort(date: PlainDate): string {
-  return format(toUtcDate(date), SHORT, { locale: localeId });
+  return `${dayOf(date)} ${monthName(SHORT_MONTHS, monthOf(date))} ${yearOf(date)}`;
 }
 
 export function formatInstantWib(instant: Date | string): string {

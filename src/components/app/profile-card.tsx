@@ -13,7 +13,7 @@ type ProfileCardProps<T extends string = string> = {
   className?: string;
 };
 
-function initialsOf(name: string): string {
+export function initialsOf(name: string): string {
   return name
     .trim()
     .split(/\s+/)

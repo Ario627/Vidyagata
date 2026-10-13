@@ -25,6 +25,7 @@ import { type Rupiah, rupiah } from "@/domain/money/money";
 import { type PlainDate, plainDate } from "@/domain/time/plain-date";
 import { formatIDR, formatIDRCompact } from "@/lib/format/currency";
 import { formatPlainDateShort } from "@/lib/format/date";
+import { formatPercentFromBp } from "@/lib/format/percent";
 import { cn } from "@/lib/utils";
 import { MoneyAmount } from "@/schemas/common";
 import { SimulationSchema } from "@/schemas/financing";
@@ -56,10 +57,6 @@ type Estimate = {
   readonly data: EstimateData | null;
   readonly amountError: string | null;
 };
-
-function toPercentLabel(basisPoints: number): string {
-  return `${String(basisPoints / 100).replace(".", ",")}%`;
-}
 
 function firstOfNextMonth(asOf: Date): PlainDate | null {
   const next = new Date(asOf.getFullYear(), asOf.getMonth() + 1, 1);
@@ -107,8 +104,9 @@ function computeEstimate(input: {
     serviceFeeRateBp: ASSUMED_SERVICE_FEE_RATE_BP,
     firstDueDate: parsed.data.firstDueDate,
   });
-  const firstRow = schedule.ok ? schedule.value.rows[0] : undefined;
-  if (!schedule.ok || firstRow === undefined) {
+  const rows = schedule.ok ? schedule.value.rows : undefined;
+  const firstRow = rows === undefined ? undefined : rows[0];
+  if (!schedule.ok || rows === undefined || firstRow === undefined) {
     return {
       data: null,
       amountError: "Nominal tidak bisa dihitung, periksa kembali.",
@@ -120,7 +118,7 @@ function computeEstimate(input: {
     data: {
       tenorMonths: parsed.data.tenorMonths,
       firstDueDate: parsed.data.firstDueDate,
-      perMonthFrom: firstRow.total,
+      perMonthFrom: rupiah(Math.min(...rows.map((row) => row.total))),
       totals: schedule.value.totals,
       payoff:
         input.earnings === null
@@ -249,7 +247,8 @@ function ResultPanel({
           </div>
           <div className="flex items-center justify-between gap-3">
             <dt className="text-foreground-muted">
-              Margin {toPercentLabel(ASSUMED_ANNUAL_MARGIN_RATE_BP)} per tahun
+              Margin {formatPercentFromBp(ASSUMED_ANNUAL_MARGIN_RATE_BP)} per
+              tahun
             </dt>
             <dd className="tabular-nums text-foreground">
               {formatIDR(data.totals.margin)}
@@ -257,7 +256,8 @@ function ResultPanel({
           </div>
           <div className="flex items-center justify-between gap-3">
             <dt className="text-foreground-muted">
-              Service fee {toPercentLabel(ASSUMED_SERVICE_FEE_RATE_BP)} (sekali)
+              Service fee {formatPercentFromBp(ASSUMED_SERVICE_FEE_RATE_BP)}{" "}
+              (sekali)
             </dt>
             <dd className="tabular-nums text-foreground">
               {formatIDR(data.totals.serviceFee)}

@@ -10,7 +10,11 @@ type InfoChipProps = {
   className?: string;
 };
 
-function InfoChipBody({ label, value, hint }: Omit<InfoChipProps, "className">) {
+function InfoChipBody({
+  label,
+  value,
+  hint,
+}: Omit<InfoChipProps, "className">) {
   return (
     <>
       <span className="text-2xs text-foreground-muted">{label}</span>

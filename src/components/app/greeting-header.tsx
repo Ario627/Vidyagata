@@ -3,24 +3,26 @@ import { cn } from "@/lib/utils";
 
 function HeaderSearch() {
   return (
-    <form action="/kerja" method="get" role="search" className="flex-1">
-      <label htmlFor="header-search" className="sr-only">
-        Cari lowongan kerja part-time
-      </label>
-      <input
-        id="header-search"
-        type="search"
-        name="q"
-        placeholder="Cari apa hari ini?"
-        autoComplete="off"
-        enterKeyHint="search"
-        className={cn(
-          "h-11 w-full rounded-full border border-transparent bg-surface px-4 text-sm text-foreground",
-          "placeholder:text-foreground-subtle",
-          "focus-visible:border-primary focus-visible:outline-primary-foreground",
-        )}
-      />
-    </form>
+    <search className="flex-1">
+      <form action="/kerja" method="get">
+        <label htmlFor="header-search" className="sr-only">
+          Cari lowongan kerja part-time
+        </label>
+        <input
+          id="header-search"
+          type="search"
+          name="q"
+          placeholder="Cari apa hari ini?"
+          autoComplete="off"
+          enterKeyHint="search"
+          className={cn(
+            "h-11 w-full rounded-full border border-transparent bg-surface px-4 text-sm text-foreground",
+            "placeholder:text-foreground-subtle",
+            "focus-visible:border-primary focus-visible:outline-primary-foreground",
+          )}
+        />
+      </form>
+    </search>
   );
 }
 
