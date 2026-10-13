@@ -8,6 +8,9 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { JobCard } from "@/components/work/job-card";
+import { getJobCatalog } from "@/data/jobs";
+import { matchesJobQuery, tokenizeJobQuery } from "@/domain/work/search";
 
 export const metadata: Metadata = {
   title: "Kerja",
@@ -94,14 +97,32 @@ async function JobFeed({
 }) {
   const params = await searchParams;
   const query = normalizeQuery(params.q);
+  const catalog = await getJobCatalog();
+  const tokens = tokenizeJobQuery(query);
+  const matches = catalog.filter((posting) => matchesJobQuery(posting, tokens));
 
   return (
     <div className="mt-6 flex flex-col gap-4">
       <SearchField query={query} />
-      {query === "" ? (
+      {catalog.length === 0 ? (
         <CatalogEmptyState />
-      ) : (
+      ) : matches.length === 0 ? (
         <NoMatchesEmptyState query={query} />
+      ) : (
+        <>
+          <p className="text-2xs text-foreground-subtle">
+            {query === ""
+              ? `${matches.length} lowongan aktif`
+              : `${matches.length} hasil untuk "${query}"`}
+          </p>
+          <ul className="flex flex-col gap-3">
+            {matches.map((posting) => (
+              <li key={posting.id}>
+                <JobCard posting={posting} />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );
