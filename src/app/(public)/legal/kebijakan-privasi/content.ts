@@ -102,6 +102,7 @@ export const PRIVACY_SECTIONS: readonly LegalSection[] = [
     paragraphs: [
       "Data pengguna di bawah 18 tahun hanya diproses dengan persetujuan orang tua atau wali.",
       "Sampai alur persetujuan wali siap sepenuhnya, kami tidak membuka pengajuan pembiayaan untuk pengguna di bawah 18 tahun dan mengarahkan mereka ke konten edukasi.",
+      "Untuk mencegah pendaftaran berulang sebelum cukup umur, saat kamu menyatakan tanggal lahir di bawah 18 kami mencatat perangkatmu: alamat jaringan dan peramban digabung lalu diacak satu arah — tidak bisa dibaca balik — beserta tanggal ketika pembatasan berakhir. Tanggal lahir tidak disimpan.",
     ],
   },
   {

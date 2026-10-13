@@ -1,7 +1,9 @@
 import type { Metadata, Route } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SignInPanel } from "@/components/auth/sign-in-panel";
+import { hasActiveAgeBan } from "@/lib/age-ban";
 import { OTP_RESEND_COOLDOWN_MS, OTP_TTL_MS } from "@/lib/crypto/otp";
 import { safeNextPath } from "@/lib/next-path";
 import { getCurrentUser } from "@/lib/session";
@@ -20,6 +22,9 @@ export default async function MasukPage({ searchParams }: PageProps<"/masuk">) {
   const user = await getCurrentUser();
   if (user !== null) {
     redirect((nextPath ?? "/dashboard") as Route);
+  }
+  if (hasActiveAgeBan(await headers())) {
+    redirect("/daftar/usia-belum-cukup" as Route);
   }
 
   return (

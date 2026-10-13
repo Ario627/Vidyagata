@@ -1,9 +1,9 @@
-import { buttonVariants } from "@/components/ui/button-variants";
-import { MINIMUM_AGE_YEARS } from "@/domain/account/age";
-import { cn } from "@/lib/utils";
+import { headers } from "next/headers";
 import Link from "next/link";
-
-export const ensureStatic = "navigation";
+import { buttonVariants } from "@/components/ui/button-variants";
+import { jakartaPlainDateOf, MINIMUM_AGE_YEARS } from "@/domain/account/age";
+import { findActiveAgeBan, fingerprintFromHeaders } from "@/lib/age-ban";
+import { cn } from "@/lib/utils";
 
 export const metadata = {
   title: "Usia belum cukup",
@@ -12,15 +12,38 @@ export const metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function UsiaBelumCukupPage() {
+export const instant = false;
+
+const LONG_DATE_FORMAT = new Intl.DateTimeFormat("id-ID", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
+function formatEligibleAt(eligibleAt: string): string {
+  return LONG_DATE_FORMAT.format(new Date(`${eligibleAt}T00:00:00Z`));
+}
+
+export default async function UsiaBelumCukupPage() {
+  const headerList = await headers();
+  const today = jakartaPlainDateOf(new Date());
+  const ban =
+    today === null
+      ? null
+      : findActiveAgeBan({
+          fingerprint: fingerprintFromHeaders(headerList),
+          today,
+        });
+
   return (
     <div className="flex flex-col gap-5">
       <p className="text-2xs font-semibold uppercase tracking-wider text-primary">
         Pendaftaran
       </p>
       <h1 className="text-2xl font-semibold tracking-tight text-balance text-foreground">
-        Untuk sekarang, pembiayaan Vidyagata hanya untuk usia {MINIMUM_AGE_YEARS}{" "}
-        tahun ke atas.
+        Untuk sekarang, pembiayaan Vidyagata hanya untuk usia{" "}
+        {MINIMUM_AGE_YEARS} tahun ke atas.
       </h1>
       <p className="text-sm leading-6 text-foreground-muted">
         Aturan pelindungan data pribadi memperlakukan data pengguna di bawah
@@ -29,9 +52,22 @@ export default function UsiaBelumCukupPage() {
         usia di bawah {MINIMUM_AGE_YEARS} tahun.
       </p>
       <p className="text-sm leading-6 text-foreground-muted">
-        Tanggal lahir yang tadi kamu isi tidak dikirim ke mana pun — tidak ada
-        akun yang dibuat, dan tidak ada data yang tersimpan.
+        Tanggal lahirmu tidak kami simpan, dan tidak ada akun yang dibuat. Yang
+        tercatat hanya perangkat ini beserta waktu pembatasannya berakhir.
       </p>
+      {ban === null ? null : (
+        <div className="rounded-lg bg-surface-raised px-4 py-3">
+          <p className="text-2xs font-semibold uppercase tracking-wider text-foreground-subtle">
+            Perangkat ini tercatat
+          </p>
+          <p className="mt-1 text-sm leading-6 text-foreground">
+            Pendaftaran dan masuk dari perangkat ini dibuka otomatis pada{" "}
+            {formatEligibleAt(ban.eligibleAt)}. Catatannya hanya cap perangkat —
+            alamat jaringan dan peramban yang digabung lalu diacak satu arah —
+            jadi tidak bisa dibaca balik, dan tanggal lahir tidak tersimpan.
+          </p>
+        </div>
+      )}
       <div className="flex flex-col gap-3">
         <Link href="/cek-kelayakan" className={buttonVariants({ size: "lg" })}>
           Coba simulasi tanpa akun

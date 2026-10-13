@@ -11,6 +11,9 @@ const FOOTER_LINKS = [
 const LEGAL_LINKS = [
   { href: "/legal/biaya", label: "Biaya" },
   { href: "/legal/kebijakan-privasi", label: "Kebijakan Privasi" },
+  { href: "/legal/kepatuhan", label: "Dasar Hukum" },
+  { href: "/legal/keamanan", label: "Keamanan" },
+  { href: "/legal/pengaduan", label: "Pengaduan" },
   { href: "/legal/syarat-ketentuan", label: "Syarat & Ketentuan" },
 ] as const;
 

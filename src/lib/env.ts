@@ -15,6 +15,9 @@ export type ServerEnv = {
   readonly EMAIL_PROVIDER: EmailProviderId;
   readonly SMTP_URL?: string | undefined;
   readonly EMAIL_FROM: string;
+  readonly TWILIO_ACCOUNT_SID?: string | undefined;
+  readonly TWILIO_AUTH_TOKEN?: string | undefined;
+  readonly TWILIO_FROM?: string | undefined;
 };
 
 export type ServerEnvIssue = string;
@@ -37,6 +40,9 @@ const serverEnvSchema = z.object({
     .string()
     .min(3, { error: "EMAIL_FROM minimal 3 karakter" })
     .default("Vidyagata <no-reply@vidyagata.id>"),
+  TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
+  TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
+  TWILIO_FROM: z.string().min(1).optional(),
 });
 
 function toIssueMessages(error: z.ZodError): string[] {
@@ -67,6 +73,18 @@ export function parseServerEnv(
     parsed.data.SMTP_URL === undefined
   ) {
     return err(["SMTP_URL: wajib diisi kalau EMAIL_PROVIDER=smtp"]);
+  }
+  if (parsed.data.SMS_PROVIDER === "twilio") {
+    const missing = (
+      [
+        ["TWILIO_ACCOUNT_SID", parsed.data.TWILIO_ACCOUNT_SID],
+        ["TWILIO_AUTH_TOKEN", parsed.data.TWILIO_AUTH_TOKEN],
+        ["TWILIO_FROM", parsed.data.TWILIO_FROM],
+      ] as const
+    )
+      .filter(([, value]) => value === undefined)
+      .map(([name]) => `${name}: wajib diisi kalau SMS_PROVIDER=twilio`);
+    if (missing.length > 0) return err(missing);
   }
   return ok(parsed.data);
 }

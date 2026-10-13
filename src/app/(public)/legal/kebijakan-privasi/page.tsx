@@ -27,7 +27,12 @@ export default function KebijakanPrivasiPage() {
       summary={PRIVACY_SUMMARY}
       sections={PRIVACY_SECTIONS}
       related={[
-        { href: "/legal/syarat-ketentuan" as Route, label: "Syarat & Ketentuan" },
+        { href: "/legal/keamanan" as Route, label: "Keamanan" },
+        { href: "/legal/kepatuhan" as Route, label: "Dasar Hukum" },
+        {
+          href: "/legal/syarat-ketentuan" as Route,
+          label: "Syarat & Ketentuan",
+        },
         { href: "/legal/biaya" as Route, label: "Biaya" },
       ]}
     />

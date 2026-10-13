@@ -1,7 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Route } from "next";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { OnboardingFlow } from "@/components/auth/onboarding/onboarding-flow";
+import { hasActiveAgeBan } from "@/lib/age-ban";
 import { OTP_RESEND_COOLDOWN_MS, OTP_TTL_MS } from "@/lib/crypto/otp";
 import { getCurrentUser } from "@/lib/session";
 
@@ -18,6 +20,9 @@ export default async function DaftarPage() {
   if (user !== null) {
     redirect("/dashboard");
   }
+  if (hasActiveAgeBan(await headers())) {
+    redirect("/daftar/usia-belum-cukup" as Route);
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -26,8 +31,8 @@ export default async function DaftarPage() {
           Buat akun Vidyagata
         </h1>
         <p className="mt-2 text-sm text-foreground-muted">
-          Datamu hanya dipakai untuk memverifikasi
-          kelayakan dan kamu selalu bisa melihat sedang di tahap mana.
+          Datamu hanya dipakai untuk memverifikasi kelayakan dan kamu selalu
+          bisa melihat sedang di tahap mana.
         </p>
       </header>
       <OnboardingFlow

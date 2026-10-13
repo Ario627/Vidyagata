@@ -1,4 +1,4 @@
-import { evaluateAgeGate, localPlainDateOf } from "@/domain/account/age";
+import { evaluateAgeGate, jakartaPlainDateOf } from "@/domain/account/age";
 import { parsePlainDate } from "@/domain/time/plain-date";
 
 export type SignUpRejection = {
@@ -32,7 +32,7 @@ export function evaluateSignUpAgeGate(
   if (!birthdate.ok) {
     return { error: "BIRTHDATE_INVALID", errorDescription: INVALID_MESSAGE };
   }
-  const today = localPlainDateOf(input.now);
+  const today = jakartaPlainDateOf(input.now);
   if (today === null) {
     return {
       error: "AGE_CHECK_UNAVAILABLE",

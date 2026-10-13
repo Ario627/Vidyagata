@@ -144,7 +144,19 @@ export const auth = betterAuth({
             phone,
           );
         }
-        const gateway = createSmsGateway({ provider: env.SMS_PROVIDER });
+        const gateway = createSmsGateway({
+          provider: env.SMS_PROVIDER,
+          twilio:
+            env.TWILIO_ACCOUNT_SID !== undefined &&
+            env.TWILIO_AUTH_TOKEN !== undefined &&
+            env.TWILIO_FROM !== undefined
+              ? {
+                  accountSid: env.TWILIO_ACCOUNT_SID,
+                  authToken: env.TWILIO_AUTH_TOKEN,
+                  from: env.TWILIO_FROM,
+                }
+              : undefined,
+        });
         const sent = await gateway.send({
           to: phone as PhoneNumber,
           text: buildOtpSmsText(code, OTP_TTL_MS),

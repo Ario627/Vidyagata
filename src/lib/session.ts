@@ -1,14 +1,16 @@
 import "server-only";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { cache } from "react";
 import { auth } from "@/lib/auth";
 
 const PATHNAME_HEADER = "x-pathname";
 
-export const getSession = cache(async () =>
-  auth.api.getSession({ headers: await headers() }),
-);
+export const getSession = cache(async () => {
+  await connection();
+  return auth.api.getSession({ headers: await headers() });
+});
 
 export const getCurrentUser = cache(
   async () => (await getSession())?.user ?? null,

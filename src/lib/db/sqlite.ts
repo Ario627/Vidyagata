@@ -2,6 +2,10 @@ import "server-only";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { IDENTITY_SCHEMA } from "./schema/identity";
+import { PLATFORM_SCHEMA } from "./schema/platform";
+import { REGULATORY_SCHEMA } from "./schema/regulatory";
+import { applyPlatformSeeds } from "./seed/platform";
 
 const DATA_DIRECTORY = ".data";
 const DATABASE_FILE = "auth.db";
@@ -72,10 +76,18 @@ CREATE TABLE IF NOT EXISTS rateLimit (
   count INTEGER NOT NULL,
   lastRequest INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS age_ban (
+  fingerprint TEXT PRIMARY KEY,
+  eligible_at TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  attempts INTEGER NOT NULL
+);
 CREATE INDEX IF NOT EXISTS session_user_id_index ON session (userId);
 CREATE INDEX IF NOT EXISTS verification_identifier_index ON verification (identifier);
 CREATE INDEX IF NOT EXISTS otp_challenge_expires_index ON otp_challenge (expiresAt);
 CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON user (username);
+CREATE INDEX IF NOT EXISTS age_ban_eligible_index ON age_ban (eligible_at);
 `;
 
 function pauseSynchronously(milliseconds: number): void {
@@ -130,13 +142,20 @@ let instance: DatabaseSync | null = null;
 
 export function openAuthDatabase(): DatabaseSync {
   if (instance !== null) return instance;
-  const file = join(process.cwd(), DATA_DIRECTORY, DATABASE_FILE);
+  const file =
+    process.env.VIDYAGATA_DB_FILE ??
+    join(process.cwd(), DATA_DIRECTORY, DATABASE_FILE);
   mkdirSync(dirname(file), { recursive: true });
   const database = new DatabaseSync(file);
   database.exec(`PRAGMA busy_timeout = ${BUSY_TIMEOUT_MS};`);
+  database.exec("PRAGMA foreign_keys = ON;");
   execWithRetry(database, "PRAGMA journal_mode = WAL;");
   execWithRetry(database, SCHEMA);
+  execWithRetry(database, PLATFORM_SCHEMA);
+  execWithRetry(database, IDENTITY_SCHEMA);
+  execWithRetry(database, REGULATORY_SCHEMA);
   ensureAdditiveColumns(database);
+  applyPlatformSeeds(database);
   instance = database;
   return database;
 }
