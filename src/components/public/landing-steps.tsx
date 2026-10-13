@@ -1,3 +1,6 @@
+import { Route } from "next";
+import Link from "next/link";
+
 type Step = {
   readonly index: string;
   readonly title: string;
@@ -53,6 +56,14 @@ function LandingSteps() {
             <StepItem key={step.index} step={step} />
           ))}
         </ol>
+        <p className="mt-6">
+          <Link
+            href={"/cara-kerja" as Route}
+            className="text-sm font-medium text-primary transition-colors duration-150 ease-out hover:text-primary-hover"
+          >
+            Baca alur lengkapnya, termasuk potongan cicilan dari penghasilan
+          </Link>
+        </p>
       </div>
     </section>
   );

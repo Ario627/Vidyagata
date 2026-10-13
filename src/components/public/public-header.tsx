@@ -1,5 +1,5 @@
+import type { Route } from "next";
 import Link from "next/link";
-import { Route } from "next";
 
 function PublicHeader() {
   return (
@@ -12,7 +12,7 @@ function PublicHeader() {
           Vidyagata
         </Link>
         <Link
-          href={"/masuk" as Route }
+          href={"/masuk" as Route}
           className="text-sm font-medium text-primary transition-colors duration-150 ease-out hover:text-primary-hover"
         >
           Masuk

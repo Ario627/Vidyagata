@@ -1,7 +1,8 @@
-import { Route } from "next";
+import type { Route } from "next";
 import Link from "next/link";
 
 const FOOTER_LINKS = [
+  { href: "/cara-kerja", label: "Cara Kerja" },
   { href: "/cek-kelayakan", label: "Cek Kelayakan" },
   { href: "/masuk", label: "Masuk" },
   { href: "/daftar", label: "Daftar" },
@@ -37,7 +38,7 @@ function PublicFooter() {
       </div>
       <div className="border-border border-t">
         <p className="mx-auto w-full max-w-5xl px-4 py-4 text-xs leading-5 text-foreground-subtle sm:px-6">
-          © 2026 Vidyagata. 
+          © 2026 Vidyagata.
         </p>
       </div>
     </footer>
