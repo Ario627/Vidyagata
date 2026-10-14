@@ -6,6 +6,7 @@ const LINKS: readonly { readonly href: Route; readonly label: string }[] = [
   { href: "/operator/antrian" as Route, label: "Antrian" },
   { href: "/operator/pencairan" as Route, label: "Pencairan" },
   { href: "/operator/keamanan" as Route, label: "Keamanan" },
+  { href: "/operator/profil" as Route, label: "Profil" },
 ];
 
 function OperatorHeader() {

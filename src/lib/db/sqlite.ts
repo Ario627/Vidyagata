@@ -122,6 +122,7 @@ const ADDITIVE_COLUMNS: readonly AdditiveColumn[] = [
     column: "twoFactorEnabled",
     definition: "INTEGER NOT NULL DEFAULT 0",
   },
+  { table: "user", column: "totpLastCodeHash", definition: "TEXT" },
 ];
 
 function ensureAdditiveColumns(database: DatabaseSync): void {

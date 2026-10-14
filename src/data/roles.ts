@@ -129,6 +129,35 @@ export async function revokeRole(input: {
   });
 }
 
+export type MyRoleAssignment = {
+  readonly role: Role;
+  readonly grantedAt: string;
+  readonly reason: string | null;
+};
+
+const SELECT_MY_ASSIGNMENTS = `SELECT role, granted_at, reason FROM user_roles
+WHERE user_id = ? AND revoked_at IS NULL
+ORDER BY granted_at, role`;
+
+export async function listMyRoleAssignments(): Promise<
+  readonly MyRoleAssignment[]
+> {
+  const user = await getCurrentUser();
+  if (user === null) return [];
+  const rows = openAuthDatabase()
+    .prepare(SELECT_MY_ASSIGNMENTS)
+    .all(user.id) as {
+    role: string;
+    granted_at: string;
+    reason: string | null;
+  }[];
+  return rows.flatMap((row) =>
+    isRole(row.role)
+      ? [{ role: row.role, grantedAt: row.granted_at, reason: row.reason }]
+      : [],
+  );
+}
+
 export async function defaultLandingPath(): Promise<Route> {
   const user = await getCurrentUser();
   if (user === null) return "/masuk";

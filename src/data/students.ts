@@ -126,6 +126,31 @@ export async function getMyStudentProfile(): Promise<StudentProfile | null> {
   return row === null ? null : toProfile(row);
 }
 
+export type StudentIdentity = {
+  readonly profile: StudentProfile;
+  readonly institutionName: string | null;
+};
+
+type IdentityRow = StudentRow & { institution_name: string | null };
+
+const SELECT_IDENTITY_BY_USER = `SELECT s.id, s.user_id, s.full_name,
+  s.nickname, s.date_of_birth, s.academic_status, s.current_semester,
+  s.gpa_hundredths, s.institution_id, s.province, s.city, s.created_at,
+  s.updated_at, i.name AS institution_name
+FROM students s
+LEFT JOIN institutions i ON i.id = s.institution_id
+WHERE s.user_id = ?`;
+
+export async function getMyStudentIdentity(): Promise<StudentIdentity | null> {
+  const user = await getCurrentUser();
+  if (user === null) return null;
+  const row = openAuthDatabase()
+    .prepare(SELECT_IDENTITY_BY_USER)
+    .get(user.id) as IdentityRow | undefined;
+  if (row === undefined) return null;
+  return { profile: toProfile(row), institutionName: row.institution_name };
+}
+
 export async function saveStudentProfile(
   input: StudentProfileInput,
 ): Promise<StudentProfile> {

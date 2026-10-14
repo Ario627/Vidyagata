@@ -48,6 +48,8 @@ function verifyIssueMessage(issue: AuthIssue): string {
   switch (issue.code) {
     case "INVALID_CODE":
       return "Kode tidak cocok. Pastikan jam perangkatmu akurat lalu coba lagi.";
+    case "TOTP_CODE_ALREADY_USED":
+      return "Kode ini sudah dipakai. Tunggu kode berikutnya di aplikasi autentikatormu lalu coba lagi.";
     case "ACCOUNT_TEMPORARILY_LOCKED":
       return "Terlalu banyak kode salah. Akun terkunci sementara, coba lagi 15 menit kemudian.";
     case "TOO_MANY_REQUESTS":
@@ -84,22 +86,28 @@ function BackupCodes({ codes }: { readonly codes: readonly string[] }) {
   );
 }
 
-function EnabledPanel() {
+function EnabledPanel({ scope }: { readonly scope: "operator" | "personal" }) {
   return (
     <div className="flex flex-col gap-2 rounded-xl border border-border bg-surface p-4">
       <p className="text-sm font-semibold text-foreground">
         Verifikasi dua langkah aktif
       </p>
       <p className="text-sm leading-6 text-foreground-muted">
-        Setiap masuk ke akun operator ini butuh kode dari aplikasi
-        autentikatormu. Kode pemulihan hanya tampil saat pengaturan awal — kalau
-        hilang, minta admin mengatur ulang.
+        {scope === "operator"
+          ? "Setiap masuk ke akun operator ini butuh kode dari aplikasi autentikatormu. Kode pemulihan hanya tampil saat pengaturan awal — kalau hilang, minta admin mengatur ulang."
+          : "Setiap masuk ke akunmu sekarang butuh kode dari aplikasi autentikator. Kode pemulihan hanya tampil saat pengaturan awal — simpan di tempat aman."}
       </p>
     </div>
   );
 }
 
-function TwoFactorSetup({ enabled }: { readonly enabled: boolean }) {
+function TwoFactorSetup({
+  enabled,
+  scope = "personal",
+}: {
+  readonly enabled: boolean;
+  readonly scope?: "operator" | "personal";
+}) {
   const router = useRouter();
   const [scan, setScan] = useState<ScanState | null>(null);
   const [password, setPassword] = useState("");
@@ -145,11 +153,12 @@ function TwoFactorSetup({ enabled }: { readonly enabled: boolean }) {
       return;
     }
     setConfirmed(true);
+    await authClient.revokeOtherSessions().catch(() => undefined);
     router.refresh();
   }
 
   if (enabled || confirmed) {
-    return <EnabledPanel />;
+    return <EnabledPanel scope={scope} />;
   }
 
   if (scan === null) {
@@ -275,6 +284,19 @@ function TwoFactorSetup({ enabled }: { readonly enabled: boolean }) {
           {pending === "verify"
             ? "Memverifikasi..."
             : "Aktifkan verifikasi dua langkah"}
+        </Button>
+        <Button
+          variant="ghost"
+          size="lg"
+          className="w-full"
+          disabled={pending !== null}
+          onClick={() => {
+            setScan(null);
+            setCode("");
+            setCodeIssue(null);
+          }}
+        >
+          Mulai ulang pengaturan
         </Button>
       </section>
     </div>

@@ -1,3 +1,4 @@
+import type { ApplicationStatus } from "@/data/applications";
 import type { CompensationType, JobType, LocationType } from "@/data/jobs";
 import { rupiah } from "@/domain/money/money";
 import { formatIDR, formatIDRDigits } from "@/lib/format/currency";
@@ -46,3 +47,19 @@ export function formatCompensation(input: {
   }
   return `Rp${jutaText(input.compensationMin)}–${jutaText(input.compensationMax)} jt / ${period}`;
 }
+
+type ApplicationStatusMeta = {
+  readonly label: string;
+  readonly variant: "neutral" | "info" | "success" | "warning" | "danger";
+};
+
+export const APPLICATION_STATUS_META: Readonly<
+  Record<ApplicationStatus, ApplicationStatusMeta>
+> = {
+  draft: { label: "Draf", variant: "neutral" },
+  submitted: { label: "Terkirim", variant: "info" },
+  shortlisted: { label: "Masuk daftar pendek", variant: "warning" },
+  rejected: { label: "Belum berhasil", variant: "danger" },
+  accepted: { label: "Diterima", variant: "success" },
+  withdrawn: { label: "Ditarik", variant: "neutral" },
+};

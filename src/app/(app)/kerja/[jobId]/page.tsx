@@ -5,11 +5,13 @@ import { PageHeader } from "@/components/app/page-header";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { ApplyPanel } from "@/components/work/apply-panel";
 import {
   formatCompensation,
   JOB_TYPE_LABELS,
   LOCATION_TYPE_LABELS,
 } from "@/components/work/labels";
+import { getMyApplicationForPosting } from "@/data/applications";
 import { getJobPostingDetail } from "@/data/jobs";
 import { formatInstantWib } from "@/lib/format/date";
 import { requireUser } from "@/lib/session";
@@ -49,6 +51,7 @@ export default async function JobDetailPage({
   const { jobId } = await params;
   const job = await getJobPostingDetail(jobId);
   if (job === null) notFound();
+  const existingApplication = await getMyApplicationForPosting(jobId);
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
@@ -117,10 +120,11 @@ export default async function JobDetailPage({
           </CardContent>
         </Card>
       )}
-      <p className="mt-4 text-2xs leading-4 text-foreground-subtle">
-        Pelamaran langsung dari aplikasi sedang disiapkan dan akan dibuka
-        bertahap. Lowongan ini sudah diverifikasi tim Vidyagata.
-      </p>
+      <ApplyPanel
+        postingId={job.id}
+        postingTitle={job.title}
+        existing={existingApplication}
+      />
       <Link
         href={"/kerja" as Route}
         className={cn(

@@ -4,6 +4,7 @@ import { OTPField } from "@base-ui/react/otp-field";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { resolveLandingAction } from "@/app/(auth)/masuk/landing";
 import { Button } from "@/components/ui/button";
 import {
   FieldDescription,
@@ -36,6 +37,8 @@ function verifyIssueMessage(issue: AuthIssue): string {
   switch (issue.code) {
     case "INVALID_CODE":
       return "Kode tidak cocok. Pastikan jam perangkatmu akurat lalu coba lagi.";
+    case "TOTP_CODE_ALREADY_USED":
+      return "Kode ini sudah dipakai. Tunggu kode berikutnya di aplikasi autentikatormu lalu coba lagi.";
     case "ACCOUNT_TEMPORARILY_LOCKED":
       return "Terlalu banyak kode salah. Akun terkunci sementara, coba lagi 15 menit kemudian.";
     case "TOO_MANY_REQUESTS":
@@ -70,6 +73,13 @@ function TwoFactorForm({ nextPath }: TwoFactorFormProps) {
   const [issue, setIssue] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
+  async function finish() {
+    const target =
+      nextPath ??
+      (await resolveLandingAction().catch(() => "/dashboard" as Route));
+    router.replace(target as Route);
+  }
+
   async function submitTotp(value: string) {
     if (pending || value.length !== TOTP_CODE_LENGTH) return;
     setIssue(null);
@@ -81,7 +91,7 @@ function TwoFactorForm({ nextPath }: TwoFactorFormProps) {
       setCode("");
       return;
     }
-    router.replace((nextPath ?? "/dashboard") as Route);
+    await finish();
   }
 
   async function submitBackup() {
@@ -97,7 +107,7 @@ function TwoFactorForm({ nextPath }: TwoFactorFormProps) {
       setPending(false);
       return;
     }
-    router.replace((nextPath ?? "/dashboard") as Route);
+    await finish();
   }
 
   if (mode === "backup") {

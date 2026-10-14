@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClockSkewNotice } from "@/components/account/clock-skew-notice";
 import { PageHeader } from "@/components/app/page-header";
 import { TwoFactorSetup } from "@/components/operator/two-factor-setup";
 import { isTwoFactorEnabled, requireOperatorMfa } from "@/data/two-factor";
@@ -20,7 +21,8 @@ export default async function OperatorSecurityPage() {
         title="Keamanan akun"
         description="Semua akun operator wajib memakai verifikasi dua langkah. Antrian pengajuan hanya terbuka setelah verifikasi aktif."
       />
-      <TwoFactorSetup enabled={isTwoFactorEnabled(actor.id)} />
+      <ClockSkewNotice serverNow={new Date().toISOString()} />
+      <TwoFactorSetup enabled={isTwoFactorEnabled(actor.id)} scope="operator" />
     </main>
   );
 }

@@ -65,4 +65,37 @@ CREATE INDEX IF NOT EXISTS idx_job_posting_skills_skill
   ON job_posting_skills (skill);
 `;
 
-export const WORK_SCHEMA = `${EMPLOYERS}\n${JOB_POSTINGS}\n${JOB_POSTING_SKILLS}`;
+const JOB_APPLICATIONS = `
+CREATE TABLE IF NOT EXISTS job_applications (
+  id TEXT PRIMARY KEY,
+  student_id TEXT NOT NULL REFERENCES students(id),
+  job_posting_id TEXT NOT NULL REFERENCES job_postings(id),
+  status TEXT NOT NULL CHECK (status IN (
+    'draft', 'submitted', 'shortlisted', 'rejected', 'accepted', 'withdrawn'
+  )),
+  note TEXT,
+  submitted_at TEXT,
+  decided_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  CONSTRAINT ck_job_applications_submitted
+    CHECK (status IN ('draft', 'withdrawn') OR submitted_at IS NOT NULL)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_job_applications_active
+  ON job_applications (student_id, job_posting_id)
+  WHERE status IN ('draft', 'submitted', 'shortlisted', 'accepted');
+CREATE INDEX IF NOT EXISTS idx_job_applications_student_created_at
+  ON job_applications (student_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_job_applications_posting_status
+  ON job_applications (job_posting_id, status);
+CREATE TRIGGER IF NOT EXISTS job_applications_touch
+AFTER UPDATE ON job_applications
+FOR EACH ROW
+BEGIN
+  UPDATE job_applications
+  SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = NEW.id;
+END;
+`;
+
+export const WORK_SCHEMA = `${EMPLOYERS}\n${JOB_POSTINGS}\n${JOB_POSTING_SKILLS}\n${JOB_APPLICATIONS}`;

@@ -1,5 +1,6 @@
 import type { Metadata, Route } from "next";
 import { redirect } from "next/navigation";
+import { ClockSkewNotice } from "@/components/account/clock-skew-notice";
 import { TwoFactorForm } from "@/components/auth/two-factor-form";
 import { safeNextPath } from "@/lib/next-path";
 import { getCurrentUser } from "@/lib/session";
@@ -33,6 +34,7 @@ export default async function DuaFaktorPage({
           dan masukkan kode 6 digit yang tampil sekarang.
         </p>
       </header>
+      <ClockSkewNotice serverNow={new Date().toISOString()} />
       <TwoFactorForm nextPath={nextPath} />
     </div>
   );

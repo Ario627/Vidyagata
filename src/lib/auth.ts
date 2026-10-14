@@ -1,8 +1,8 @@
 import { betterAuth } from "better-auth";
-import { APIError } from "better-auth/api";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { emailOTP, twoFactor, username } from "better-auth/plugins";
+import { markTotpCodeUsed, wasTotpCodeUsed } from "@/data/mfa-code-guard";
 import { createEmailGateway } from "@/integrations/email/gateway";
-
 import {
   buildOtpEmailSubject,
   buildOtpEmailText,
@@ -20,6 +20,10 @@ import {
   USERNAME_MIN_LENGTH,
   USERNAME_PATTERN,
 } from "@/schemas/onboarding";
+
+const TOTP_VERIFY_PATH = "/two-factor/verify-totp";
+const TWO_FACTOR_COOKIE = "two_factor";
+const TOTP_REPLAY_ERROR_CODE = "TOTP_CODE_ALREADY_USED";
 
 export const auth = betterAuth({
   appName: "Vidyagata",
@@ -62,6 +66,37 @@ export const auth = betterAuth({
       "/email-otp/verify-email": { window: 60, max: 10 },
       "/sign-in/email": { window: 60, max: 10 },
     },
+  },
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== TOTP_VERIFY_PATH) return;
+      const secret = ctx.context.secret;
+      if (typeof secret !== "string") return;
+      const cookie = ctx.context.createAuthCookie(TWO_FACTOR_COOKIE);
+      const challenge = await ctx.getSignedCookie(cookie.name, secret);
+      if (typeof challenge !== "string" || challenge.length === 0) return;
+      const verification =
+        await ctx.context.internalAdapter.findVerificationValue(challenge);
+      const userId = verification?.value;
+      if (typeof userId !== "string") return;
+      const submitted = (ctx.body as { code?: unknown } | undefined)?.code;
+      if (typeof submitted !== "string" || submitted.length === 0) return;
+      if (wasTotpCodeUsed(userId, submitted)) {
+        throw APIError.from("TOO_MANY_REQUESTS", {
+          message:
+            "Kode ini sudah dipakai. Tunggu kode berikutnya lalu coba lagi.",
+          code: TOTP_REPLAY_ERROR_CODE,
+        });
+      }
+    }),
+    after: createAuthMiddleware(async (ctx) => {
+      if (ctx.path !== TOTP_VERIFY_PATH) return;
+      const user = ctx.context.newSession?.user;
+      if (user === null || user === undefined) return;
+      const submitted = (ctx.body as { code?: unknown } | undefined)?.code;
+      if (typeof submitted !== "string" || submitted.length === 0) return;
+      markTotpCodeUsed(user.id, submitted);
+    }),
   },
   plugins: [
     username({

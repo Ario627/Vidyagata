@@ -13,6 +13,7 @@ export type ServerEnv = {
   readonly EMAIL_PROVIDER: EmailProviderId;
   readonly SMTP_URL?: string | undefined;
   readonly EMAIL_FROM: string;
+  readonly DATABASE_URL?: string | undefined;
 };
 
 export type ServerEnvIssue = string;
@@ -34,6 +35,12 @@ const serverEnvSchema = z.object({
     .string()
     .min(3, { error: "EMAIL_FROM minimal 3 karakter" })
     .default("Vidyagata <no-reply@vidyagata.id>"),
+  DATABASE_URL: z
+    .string()
+    .regex(/^postgres(ql)?:\/\//, {
+      error: "DATABASE_URL harus diawali postgres:// atau postgresql://",
+    })
+    .optional(),
   TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
   TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
   TWILIO_FROM: z.string().min(1).optional(),
