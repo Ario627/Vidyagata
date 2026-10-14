@@ -145,6 +145,34 @@ function entriesOf(data: Record<string, unknown>): {
   return { columns, values: columns.map((column) => toSqlValue(data[column])) };
 }
 
+const tableColumns = new Map<string, ReadonlySet<string>>();
+
+function columnsOf(database: DatabaseSync, model: string): ReadonlySet<string> {
+  const cached = tableColumns.get(model);
+  if (cached !== undefined) return cached;
+  const entries = database
+    .prepare(`PRAGMA table_info(${identifierOf(model)})`)
+    .all() as { name: string }[];
+  const columns = new Set(entries.map((entry) => entry.name));
+  tableColumns.set(model, columns);
+  return columns;
+}
+
+function withTimestamps(
+  database: DatabaseSync,
+  model: string,
+  data: Record<string, unknown>,
+  fields: readonly string[],
+): Record<string, unknown> {
+  const columns = columnsOf(database, model);
+  const stamped = { ...data };
+  const now = new Date();
+  for (const field of fields) {
+    if (columns.has(field) && stamped[field] == null) stamped[field] = now;
+  }
+  return stamped;
+}
+
 function createHandlers(database: DatabaseSync): CustomAdapter {
   return {
     async create<T extends Record<string, unknown>>({
@@ -156,7 +184,11 @@ function createHandlers(database: DatabaseSync): CustomAdapter {
       data: T;
       select?: string[] | undefined;
     }): Promise<T> {
-      const { columns, values } = entriesOf(data);
+      const stamped = withTimestamps(database, model, data, [
+        "createdAt",
+        "updatedAt",
+      ]);
+      const { columns, values } = entriesOf(stamped);
       const row = database
         .prepare(
           `INSERT INTO ${identifierOf(model)} (${columns.join(", ")}) VALUES (${placeholdersOf(columns.length)}) RETURNING ${selectionOf(select)}`,
@@ -174,7 +206,13 @@ function createHandlers(database: DatabaseSync): CustomAdapter {
       where: CleanedWhere[];
       update: T;
     }): Promise<T | null> {
-      const { columns, values } = entriesOf(update as Record<string, unknown>);
+      const stamped = withTimestamps(
+        database,
+        model,
+        update as Record<string, unknown>,
+        ["updatedAt"],
+      );
+      const { columns, values } = entriesOf(stamped);
       const assignments = columns.map((column) => `${column} = ?`).join(", ");
       const condition = whereClauseOf(where);
       const row = database
@@ -186,7 +224,8 @@ function createHandlers(database: DatabaseSync): CustomAdapter {
     },
 
     async updateMany({ where, model, update }) {
-      const { columns, values } = entriesOf(update);
+      const stamped = withTimestamps(database, model, update, ["updatedAt"]);
+      const { columns, values } = entriesOf(stamped);
       const assignments = columns.map((column) => `${column} = ?`).join(", ");
       const condition = whereClauseOf(where);
       const result = database

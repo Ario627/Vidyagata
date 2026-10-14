@@ -27,12 +27,13 @@ function DialogTitle({
 
 function DialogClose({
   className,
+  children,
   ...props
 }: ComponentProps<typeof BaseDialog.Close>) {
   return (
     <BaseDialog.Close
       data-slot="dialog-close"
-      aria-label="Tutup"
+      aria-label={children === undefined ? "Tutup" : undefined}
       className={cn(
         "grid size-9 shrink-0 place-items-center rounded-full text-foreground-muted",
         "transition-colors duration-150 ease-out hover:bg-surface-raised hover:text-foreground",
@@ -41,7 +42,7 @@ function DialogClose({
       )}
       {...props}
     >
-      <X aria-hidden="true" className="size-4" />
+      {children ?? <X aria-hidden="true" className="size-4" />}
     </BaseDialog.Close>
   );
 }

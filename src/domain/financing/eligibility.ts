@@ -2,6 +2,8 @@ import { min, type Rupiah } from "../money/money";
 
 export const ELIGIBILITY_ENGINE_VERSION = "vidya-elig-1.0.0";
 
+export const FORWARD_MIN_SCORE = 50;
+
 export type AcademicStatus =
   | "high_school"
   | "undergraduate"

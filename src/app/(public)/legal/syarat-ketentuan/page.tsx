@@ -27,7 +27,10 @@ export default function SyaratKetentuanPage() {
       summary={TERMS_SUMMARY}
       sections={TERMS_SECTIONS}
       related={[
-        { href: "/legal/kebijakan-privasi" as Route, label: "Kebijakan Privasi" },
+        {
+          href: "/legal/kebijakan-privasi" as Route,
+          label: "Kebijakan Privasi",
+        },
         { href: "/legal/kepatuhan" as Route, label: "Dasar Hukum" },
         { href: "/legal/pengaduan" as Route, label: "Pengaduan" },
         { href: "/legal/biaya" as Route, label: "Biaya" },

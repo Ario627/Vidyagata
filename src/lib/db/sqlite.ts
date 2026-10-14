@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { FINANCING_SCHEMA, migrateFinancingIndexes } from "./schema/financing";
 import { IDENTITY_SCHEMA } from "./schema/identity";
+import { MONEY_SCHEMA } from "./schema/money";
 import { PLATFORM_SCHEMA } from "./schema/platform";
 import { REGULATORY_SCHEMA } from "./schema/regulatory";
 import { SEQUENCE_SCHEMA } from "./schema/sequences";
@@ -27,8 +28,6 @@ CREATE TABLE IF NOT EXISTS user (
   image TEXT,
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL,
-  phoneNumber TEXT,
-  phoneNumberVerified INTEGER,
   username TEXT,
   displayUsername TEXT,
   birthdate TEXT
@@ -66,15 +65,6 @@ CREATE TABLE IF NOT EXISTS verification (
   createdAt TEXT NOT NULL,
   updatedAt TEXT NOT NULL
 );
-CREATE TABLE IF NOT EXISTS otp_challenge (
-  phoneNumber TEXT PRIMARY KEY,
-  codeHash TEXT NOT NULL,
-  issuedAt INTEGER NOT NULL,
-  expiresAt INTEGER NOT NULL,
-  attempts INTEGER NOT NULL,
-  lockCount INTEGER NOT NULL,
-  lockedUntil INTEGER
-);
 CREATE TABLE IF NOT EXISTS rateLimit (
   id TEXT PRIMARY KEY,
   key TEXT NOT NULL UNIQUE,
@@ -88,9 +78,21 @@ CREATE TABLE IF NOT EXISTS age_ban (
   updated_at TEXT NOT NULL,
   attempts INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS "twoFactor" (
+  id TEXT PRIMARY KEY,
+  secret TEXT NOT NULL,
+  backupCodes TEXT NOT NULL,
+  userId TEXT NOT NULL REFERENCES user(id),
+  verified INTEGER NOT NULL DEFAULT 0,
+  failedVerificationCount INTEGER NOT NULL DEFAULT 0,
+  lockedUntil TEXT,
+  createdAt TEXT NOT NULL,
+  updatedAt TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS two_factor_user_id_index ON "twoFactor" (userId);
+CREATE INDEX IF NOT EXISTS two_factor_secret_index ON "twoFactor" (secret);
 CREATE INDEX IF NOT EXISTS session_user_id_index ON session (userId);
 CREATE INDEX IF NOT EXISTS verification_identifier_index ON verification (identifier);
-CREATE INDEX IF NOT EXISTS otp_challenge_expires_index ON otp_challenge (expiresAt);
 CREATE UNIQUE INDEX IF NOT EXISTS user_username_unique ON user (username);
 CREATE INDEX IF NOT EXISTS age_ban_eligible_index ON age_ban (eligible_at);
 `;
@@ -115,6 +117,11 @@ const ADDITIVE_COLUMNS: readonly AdditiveColumn[] = [
   { table: "user", column: "username", definition: "TEXT" },
   { table: "user", column: "displayUsername", definition: "TEXT" },
   { table: "user", column: "birthdate", definition: "TEXT" },
+  {
+    table: "user",
+    column: "twoFactorEnabled",
+    definition: "INTEGER NOT NULL DEFAULT 0",
+  },
 ];
 
 function ensureAdditiveColumns(database: DatabaseSync): void {
@@ -161,6 +168,7 @@ export function openAuthDatabase(): DatabaseSync {
   execWithRetry(database, REGULATORY_SCHEMA);
   execWithRetry(database, FINANCING_SCHEMA);
   migrateFinancingIndexes(database);
+  execWithRetry(database, MONEY_SCHEMA);
   execWithRetry(database, SEQUENCE_SCHEMA);
   execWithRetry(database, WORK_SCHEMA);
   ensureAdditiveColumns(database);

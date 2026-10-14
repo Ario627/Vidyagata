@@ -1,31 +1,17 @@
 import { betterAuth } from "better-auth";
 import { APIError } from "better-auth/api";
-import { emailOTP, phoneNumber, username } from "better-auth/plugins";
-import {
-  clearOtpChallenge,
-  getOtpChallenge,
-  recordFailedOtpAttempt,
-  saveOtpChallenge,
-} from "@/data/otp";
+import { emailOTP, twoFactor, username } from "better-auth/plugins";
 import { createEmailGateway } from "@/integrations/email/gateway";
 
 import {
   buildOtpEmailSubject,
   buildOtpEmailText,
 } from "@/integrations/email/message";
-import { buildOtpSmsText, createSmsGateway } from "@/integrations/sms/gateway";
 import { evaluateSignUpAgeGate } from "@/lib/age-gate";
-import {
-  hashOtpCode,
-  OTP_MAX_ATTEMPTS,
-  OTP_RESEND_COOLDOWN_MS,
-  OTP_TTL_MS,
-  verifyOtpCode,
-} from "@/lib/crypto/otp";
+import { OTP_MAX_ATTEMPTS, OTP_TTL_MS } from "@/lib/crypto/otp";
 import { createAuthDatabase } from "@/lib/db/auth-adapter";
 import { getServerEnv } from "@/lib/env";
 import { OTP_CODE_LENGTH } from "@/schemas/auth";
-import { isCanonicalPhoneNumber, type PhoneNumber } from "@/schemas/common";
 import {
   BirthdateInput,
   PASSWORD_MAX_LENGTH,
@@ -71,8 +57,6 @@ export const auth = betterAuth({
     max: 100,
     storage: "database",
     customRules: {
-      "/phone-number/send-otp": { window: 60, max: 5 },
-      "/phone-number/verify": { window: 60, max: 10 },
       "/sign-up/email": { window: 300, max: 10 },
       "/email-otp/send-verification-otp": { window: 60, max: 3 },
       "/email-otp/verify-email": { window: 60, max: 10 },
@@ -111,87 +95,23 @@ export const auth = betterAuth({
         }
       },
     }),
-    phoneNumber({
-      otpLength: OTP_CODE_LENGTH,
-      expiresIn: Math.round(OTP_TTL_MS / 1000),
-      phoneNumberValidator: isCanonicalPhoneNumber,
-      signUpOnVerification: {
-        getTempEmail: (phone) => `${phone.replace("+", "")}@phone.vidyagata.id`,
-        getTempName: () => "Pengguna Vidyagata",
+    twoFactor({
+      issuer: "Vidyagata",
+      totpOptions: {
+        digits: 6,
+        period: 30,
       },
-      async sendOTP({ phoneNumber: phone, code }, ctx) {
-        const now = Date.now();
-        const existing = await getOtpChallenge(phone as PhoneNumber, now);
-        if (
-          existing !== null &&
-          now - existing.issuedAt < OTP_RESEND_COOLDOWN_MS
-        ) {
-          throw APIError.from("TOO_MANY_REQUESTS", {
-            code: "OTP_RESEND_COOLDOWN",
-            message:
-              "Kode baru bisa dikirim satu menit setelah permintaan terakhir.",
-          });
-        }
-        const env = getServerEnv();
-        await saveOtpChallenge({
-          phoneNumber: phone as PhoneNumber,
-          codeHash: hashOtpCode(code, env.OTP_PEPPER),
-          now,
-          ttlMs: OTP_TTL_MS,
-        });
-        if (ctx) {
-          await ctx.context.internalAdapter.deleteVerificationByIdentifier(
-            phone,
-          );
-        }
-        const gateway = createSmsGateway({
-          provider: env.SMS_PROVIDER,
-          twilio:
-            env.TWILIO_ACCOUNT_SID !== undefined &&
-            env.TWILIO_AUTH_TOKEN !== undefined &&
-            env.TWILIO_FROM !== undefined
-              ? {
-                  accountSid: env.TWILIO_ACCOUNT_SID,
-                  authToken: env.TWILIO_AUTH_TOKEN,
-                  from: env.TWILIO_FROM,
-                }
-              : undefined,
-        });
-        const sent = await gateway.send({
-          to: phone as PhoneNumber,
-          text: buildOtpSmsText(code, OTP_TTL_MS),
-        });
-        if (!sent.ok) {
-          await clearOtpChallenge(phone as PhoneNumber);
-          throw APIError.from("BAD_GATEWAY", {
-            code: "SMS_SEND_FAILED",
-            message:
-              "Kode tidak bisa dikirim sekarang. Coba lagi sebentar lagi.",
-          });
-        }
+      backupCodeOptions: {
+        amount: 10,
+        length: 10,
+        storeBackupCodes: "encrypted",
       },
-      async verifyOTP({ phoneNumber: phone, code }) {
-        const now = Date.now();
-        const challenge = await getOtpChallenge(phone as PhoneNumber, now);
-        if (challenge === null) return false;
-        if (challenge.lockedUntil !== null && now < challenge.lockedUntil) {
-          return false;
-        }
-        const matches = verifyOtpCode({
-          code,
-          expectedHash: challenge.codeHash,
-          pepper: getServerEnv().OTP_PEPPER,
-        });
-        if (!matches) {
-          await recordFailedOtpAttempt({
-            phoneNumber: phone as PhoneNumber,
-            now,
-          });
-          return false;
-        }
-        await clearOtpChallenge(phone as PhoneNumber);
-        return true;
+      accountLockout: {
+        enabled: true,
+        maxFailedAttempts: 5,
+        durationSeconds: 900,
       },
+      twoFactorCookieMaxAge: 600,
     }),
   ],
 });

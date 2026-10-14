@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { GreetingHeader } from "@/components/app/greeting-header";
 import { InfoChip } from "@/components/app/info-chip";
+import { MbakVidyaBanner } from "@/components/app/mbak-vidya-banner";
 import { initialsOf, ProfileCard } from "@/components/app/profile-card";
 import { QuickActions } from "@/components/app/quick-actions";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -10,7 +11,6 @@ import type { Rupiah } from "@/domain/money/money";
 import { formatIDR } from "@/lib/format/currency";
 import { formatPlainDate } from "@/lib/format/date";
 import { dashboardDemo } from "../_lib/dashboard-demo";
-import { MbakVidyaBanner } from "@/components/app/mbak-vidya-banner";
 
 export const metadata: Metadata = {
   title: "Beranda",
@@ -116,7 +116,11 @@ function OverviewCard() {
       tone: "bg-chart-2",
     },
     { label: "Margin", amount: composition.margin, tone: "bg-chart-3" },
-    { label: "Service fee", amount: composition.serviceFee, tone: "bg-chart-4" },
+    {
+      label: "Service fee",
+      amount: composition.serviceFee,
+      tone: "bg-chart-4",
+    },
   ];
 
   return (

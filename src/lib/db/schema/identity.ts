@@ -118,4 +118,16 @@ BEGIN
 END;
 `;
 
-export const IDENTITY_SCHEMA = `${INSTITUTIONS}\n${LENDERS}\n${STUDENTS}\n${USER_ROLES}`;
+const OFFICER_PORTFOLIOS = `
+CREATE TABLE IF NOT EXISTS officer_portfolios (
+  id TEXT PRIMARY KEY,
+  officer_id TEXT NOT NULL REFERENCES user(id),
+  facility_id TEXT NOT NULL UNIQUE REFERENCES financing_facilities(id),
+  assigned_at TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_officer_portfolios_officer
+  ON officer_portfolios (officer_id, assigned_at);
+`;
+
+export const IDENTITY_SCHEMA = `${INSTITUTIONS}\n${LENDERS}\n${STUDENTS}\n${USER_ROLES}\n${OFFICER_PORTFOLIOS}`;

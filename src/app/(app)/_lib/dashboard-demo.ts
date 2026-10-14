@@ -4,12 +4,12 @@ import {
   type ScheduleRow,
 } from "@/domain/financing/schedule";
 import { type Rupiah, rupiah, subtract, sum } from "@/domain/money/money";
+import type { Result } from "@/domain/shared/result";
 import {
   comparePlainDate,
   type PlainDate,
   plainDate,
 } from "@/domain/time/plain-date";
-import type { Result } from "@/domain/shared/result";
 
 export type DemoComposition = {
   readonly paidPrincipal: Rupiah;

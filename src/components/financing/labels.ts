@@ -1,3 +1,4 @@
+import type { DisbursementRequestStatus } from "@/domain/financing/disbursement";
 import type { FinancingStatus } from "@/domain/financing/state-machine";
 import type { AcademicPurpose } from "@/schemas/financing";
 
@@ -39,4 +40,25 @@ const ACTIVE_FACILITY_STATUSES: readonly FinancingStatus[] = [
 
 export function hasActiveFacility(status: FinancingStatus): boolean {
   return ACTIVE_FACILITY_STATUSES.includes(status);
+}
+
+export const DISBURSEMENT_STATUS_META: Readonly<
+  Record<DisbursementRequestStatus, StatusMeta>
+> = {
+  requested: { label: "Menunggu persetujuan", variant: "warning" },
+  approved: { label: "Disetujui — menunggu transfer", variant: "info" },
+  rejected: { label: "Ditolak", variant: "danger" },
+  withdrawn: { label: "Dibatalkan pengaju", variant: "neutral" },
+  executed: { label: "Selesai", variant: "success" },
+};
+
+export function formatRateBp(basisPoints: number): string {
+  const value = basisPoints / 100;
+  const text = Number.isInteger(value)
+    ? String(value)
+    : value
+        .toFixed(2)
+        .replace(/\.?0+$/, "")
+        .replace(".", ",");
+  return `${text}%`;
 }

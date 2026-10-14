@@ -2,16 +2,15 @@ import type { Metadata, Route } from "next";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { SignInPanel } from "@/components/auth/sign-in-panel";
+import { EmailSignIn } from "@/components/auth/email-sign-in";
 import { hasActiveAgeBan } from "@/lib/age-ban";
-import { OTP_RESEND_COOLDOWN_MS, OTP_TTL_MS } from "@/lib/crypto/otp";
 import { safeNextPath } from "@/lib/next-path";
 import { getCurrentUser } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Masuk",
   description:
-    "Masuk ke Vidyagata dengan nomor HP. Kode verifikasi dikirim lewat SMS dan berlaku lima menit.",
+    "Masuk ke Vidyagata dengan email dan kata sandi yang kamu pakai saat mendaftar.",
 };
 
 export const instant = false;
@@ -34,17 +33,12 @@ export default async function MasukPage({ searchParams }: PageProps<"/masuk">) {
           Masuk ke Vidyagata
         </h1>
         <p className="mt-2 text-sm text-foreground-muted">
-          Masuk dengan nomor HP atau email. Nomor yang belum pernah dipakai
-          langsung membuat akun baru dan membawamu ke dashboard.
+          Masuk dengan email dan kata sandi yang kamu pakai saat mendaftar.
         </p>
       </header>
-      <SignInPanel
-        resendCooldownSeconds={OTP_RESEND_COOLDOWN_MS / 1000}
-        ttlMinutes={OTP_TTL_MS / 60_000}
-        nextPath={nextPath}
-      />
+      <EmailSignIn nextPath={nextPath} />
       <p className="text-sm text-foreground-muted">
-        Mau mengisi nama lengkap dulu?{" "}
+        Belum punya akun?{" "}
         <Link
           href={{ pathname: "/daftar" }}
           className="font-medium text-primary transition-colors duration-150 ease-out hover:text-primary-hover"

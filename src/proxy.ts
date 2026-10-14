@@ -13,11 +13,13 @@ const SESSION_GUARDED_ROUTES = [
   "/profil",
   "/mbak-vidya",
   "/notifikasi",
+  "/operator",
 ] as const;
 
 const NONCE_RENDERED_ROUTES = [
   ...SESSION_GUARDED_ROUTES,
   "/masuk",
+  "/masuk/dua-faktor",
   "/daftar",
 ] as const;
 
@@ -94,7 +96,9 @@ export const config = {
     "/profil/:path*",
     "/mbak-vidya/:path*",
     "/notifikasi/:path*",
+    "/operator/:path*",
     "/masuk",
+    "/masuk/dua-faktor",
     "/daftar",
   ],
 };

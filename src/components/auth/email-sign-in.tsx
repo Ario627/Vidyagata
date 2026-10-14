@@ -54,13 +54,24 @@ function EmailSignIn({ nextPath }: EmailSignInProps) {
     if (!emailParsed.success || password.length === 0) return;
     setFormIssue(null);
     setPending(true);
-    const { error } = await authClient.signIn.email({
+    const { data, error } = await authClient.signIn.email({
       email: emailParsed.data,
       password,
     });
     if (error) {
       setFormIssue(signInIssueMessage(error));
       setPending(false);
+      return;
+    }
+    if (data && "twoFactorRedirect" in data) {
+      const params = new URLSearchParams();
+      if (nextPath !== null) params.set("next", nextPath);
+      const query = params.toString();
+      router.replace(
+        (query === ""
+          ? "/masuk/dua-faktor"
+          : `/masuk/dua-faktor?${query}`) as Route,
+      );
       return;
     }
     router.replace((nextPath ?? "/dashboard") as Route);

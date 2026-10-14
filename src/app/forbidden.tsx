@@ -36,7 +36,7 @@ export default function Forbidden() {
           Kembali ke dashboard
         </Link>
         <Link
-          href={"/legal/pengaduan" as Route }
+          href={"/legal/pengaduan" as Route}
           className="text-sm font-medium text-primary underline-offset-4 hover:underline"
         >
           Merasa ini keliru? Kirim pengaduan
