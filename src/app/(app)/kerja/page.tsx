@@ -1,9 +1,10 @@
-import { Briefcase, SearchX } from "lucide-react";
+import { Briefcase } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Form from "next/form";
 import Link from "next/link";
 import { Suspense } from "react";
 import { PageHeader } from "@/components/app/page-header";
+import { Mascot } from "@/components/brand/brand";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
@@ -46,7 +47,13 @@ function CatalogEmptyState() {
 function NoMatchesEmptyState({ query }: { query: string }) {
   return (
     <EmptyState
-      icon={SearchX}
+      illustration={
+        <Mascot
+          name="telusuri"
+          sizes="128px"
+          className="mascot-float h-28 w-auto"
+        />
+      }
       title={`Tidak ada lowongan untuk "${query}"`}
       description="Coba kata kunci lain"
       action={

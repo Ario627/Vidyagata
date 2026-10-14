@@ -3,6 +3,7 @@
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { resolveLandingAction } from "@/app/(auth)/masuk/landing";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
 import { authClient } from "@/lib/auth-client";
@@ -74,7 +75,14 @@ function EmailSignIn({ nextPath }: EmailSignInProps) {
       );
       return;
     }
-    router.replace((nextPath ?? "/dashboard") as Route);
+    if (nextPath !== null) {
+      router.replace(nextPath as Route);
+      return;
+    }
+    const landing = await resolveLandingAction().catch(
+      () => "/dashboard" as Route,
+    );
+    router.replace(landing);
   }
 
   return (

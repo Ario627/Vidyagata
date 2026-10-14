@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Mascot } from "@/components/brand/brand";
 
 export default function AuthLayout({ children }: LayoutProps<"/">) {
   return (
@@ -11,6 +12,16 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
           >
             Vidyagata
           </Link>
+          <span aria-hidden="true" className="sticker-pop">
+            <span className="mascot-float flex size-10 items-center justify-center overflow-hidden rounded-full border border-primary-foreground/30 bg-surface shadow-raised">
+              <Mascot
+                name="sapa"
+                eager
+                sizes="40px"
+                className="h-full w-full object-cover object-top"
+              />
+            </span>
+          </span>
           <Link
             href="/cek-kelayakan"
             className="text-sm font-medium text-primary-foreground transition-opacity duration-150 ease-out hover:opacity-80"
@@ -20,7 +31,7 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
         </div>
       </div>
       <main className="mx-auto -mt-10 w-full max-w-sm flex-1 px-4 pb-10">
-        <div className="rounded-2xl border border-border bg-surface p-5 shadow-raised sm:p-6">
+        <div className="card-rise rounded-2xl border border-border bg-surface p-5 shadow-raised sm:p-6">
           {children}
         </div>
       </main>

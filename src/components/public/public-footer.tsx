@@ -1,5 +1,6 @@
 import type { Route } from "next";
 import Link from "next/link";
+import { BrandLogo } from "@/components/brand/brand";
 
 const FOOTER_LINKS = [
   { href: "/cara-kerja", label: "Cara Kerja" },
@@ -22,9 +23,7 @@ function PublicFooter() {
     <footer data-slot="public-footer" className="border-border border-t">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-10 sm:px-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-sm">
-          <p className="text-base font-semibold tracking-tight text-foreground">
-            Vidyagata
-          </p>
+          <BrandLogo className="h-7" />
           <p className="mt-2 text-sm leading-6 text-foreground-muted">
             Pembiayaan pendidikan yang tersambung ke kerja part-time. Cicilan
             diambil dari penghasilan, transparan sejak awal.

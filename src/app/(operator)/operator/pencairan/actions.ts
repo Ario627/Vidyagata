@@ -86,6 +86,7 @@ export async function executeDisbursementAction(
     .object({
       facilityId: FacilityIdInput,
       transferReference: TransferReferenceInput,
+      deductionRate: z.union([z.literal(20), z.literal(40), z.literal(60)]),
     })
     .strict()
     .safeParse(input);

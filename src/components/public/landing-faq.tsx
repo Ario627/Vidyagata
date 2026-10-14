@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { Mascot } from "@/components/brand/brand";
 
 type FaqItem = {
   readonly question: string;
@@ -91,6 +92,11 @@ function LandingFaq() {
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-balance text-foreground sm:text-3xl">
               Pertanyaan yang sering muncul.
             </h2>
+            <Mascot
+              name="tanya"
+              sizes="176px"
+              className="mt-8 hidden w-40 lg:block"
+            />
           </div>
           <div className="mt-6 lg:mt-0">
             {FAQ_ITEMS.map((item) => (

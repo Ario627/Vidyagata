@@ -6,6 +6,7 @@ import { InfoChip } from "@/components/app/info-chip";
 import { MbakVidyaBanner } from "@/components/app/mbak-vidya-banner";
 import { initialsOf, ProfileCard } from "@/components/app/profile-card";
 import { QuickActions } from "@/components/app/quick-actions";
+import { Mascot } from "@/components/brand/brand";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import type { Rupiah } from "@/domain/money/money";
 import { formatIDR } from "@/lib/format/currency";
@@ -233,7 +234,16 @@ export default function DashboardPage() {
           status={student.status}
           href="/profil"
         />
-        <MbakVidyaBanner href="/mbak-vidya" />
+        <MbakVidyaBanner
+          href="/mbak-vidya"
+          avatar={
+            <Mascot
+              name="sapa"
+              sizes="44px"
+              className="h-full w-full object-cover object-top"
+            />
+          }
+        />
         <p className="px-1 text-2xs text-foreground-subtle">
           Pratinjau dengan angka contoh — data aslimu muncul setelah
           pembiayaanmu aktif.

@@ -2,6 +2,7 @@ import "server-only";
 import type { DatabaseSync } from "node:sqlite";
 import { requireRole } from "@/data/dal";
 import { isTwoFactorEnabled } from "@/data/two-factor";
+import { jakartaPlainDateOf } from "@/domain/account/age";
 import {
   type DisbursementRequestStatus,
   type PencairanPermissions,
@@ -17,6 +18,11 @@ import { appendAudit, prepareAudit } from "./audit";
 import { appendLedgerEntry } from "./ledger";
 import { getPilotLenderTerms } from "./lenders";
 import type { OperatorWriteResult } from "./operator";
+import {
+  createActiveSchedule,
+  firstDueDateAfter,
+  todayInJakarta,
+} from "./repayments";
 
 export type DisbursementDecision = "approved" | "rejected";
 
@@ -207,8 +213,14 @@ SET status = 'executed', executed_by = ?, executed_at = ?, transfer_reference = 
 WHERE id = ? AND status = 'approved'`;
 
 const DISBURSE_FACILITY = `UPDATE financing_facilities
-SET status = 'disbursed', disbursed_at = ?
+SET status = 'disbursed', disbursed_at = ?, payroll_deduction_rate = ?
 WHERE id = ? AND status = 'signed'`;
+
+const ACTIVATE_FACILITY = `UPDATE financing_facilities
+SET status = 'active'
+WHERE id = ? AND status = 'disbursed'`;
+
+const DEDUCTION_RATES: readonly number[] = [20, 40, 60];
 
 function toQueueItem(row: QueueRow, actorId: string): PencairanQueueItem {
   return {
@@ -262,6 +274,9 @@ function pencairanWriteError(error: unknown): string {
   }
   if (message.includes("ck_disbursement_requests_executor_owner")) {
     return "not_initiator";
+  }
+  if (message.includes("repayment_schedules.facility_id")) {
+    return "schedule_exists";
   }
   if (message.includes("FOREIGN KEY constraint failed")) {
     return "facility_not_found";
@@ -634,15 +649,26 @@ export async function withdrawDisbursement(
 export async function executeDisbursement(input: {
   readonly facilityId: string;
   readonly transferReference: string;
+  readonly deductionRate: number;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
   if (!isTwoFactorEnabled(actor.id)) return { ok: false, code: "mfa_required" };
+  if (!DEDUCTION_RATES.includes(input.deductionRate)) {
+    return { ok: false, code: "invalid_input" };
+  }
   const reference = input.transferReference.trim();
   if (reference.length < 4) return { ok: false, code: "reference_required" };
   const database = openAuthDatabase();
   const row = selectPencairanRow(database, input.facilityId);
   if (row === null) return { ok: false, code: "facility_not_found" };
   if (row.status !== "signed") return { ok: false, code: "invalid_transition" };
+  if (
+    row.tenor_months === null ||
+    row.annual_margin_rate_bp === null ||
+    row.service_fee_rate_bp === null
+  ) {
+    return { ok: false, code: "facility_incomplete" };
+  }
   const request = selectOpenRequest(database, input.facilityId);
   if (request === null || request.status !== "approved") {
     return { ok: false, code: "no_open_request" };
@@ -650,6 +676,12 @@ export async function executeDisbursement(input: {
   if (request.initiated_by !== actor.id) {
     return { ok: false, code: "not_initiator" };
   }
+  const today = todayInJakarta();
+  const firstDueDate = today === null ? null : firstDueDateAfter(today);
+  if (firstDueDate === null) return { ok: false, code: "internal_error" };
+  const tenorMonths = row.tenor_months;
+  const marginRateBp = row.annual_margin_rate_bp;
+  const feeRateBp = row.service_fee_rate_bp;
   const occurredAt = new Date();
   const statusChanged = await prepareAudit({
     actorType: "operator",
@@ -675,6 +707,16 @@ export async function executeDisbursement(input: {
     },
     reason: `Bukti transfer dicatat: ${reference}`,
   });
+  const activated = await prepareAudit({
+    actorType: "system",
+    actorId: "system",
+    action: "financing.status_changed",
+    entityType: "financing_facility",
+    entityId: input.facilityId,
+    before: { status: "disbursed" },
+    after: { status: "active" },
+    reason: "Jadwal cicilan dibuat dan diaktifkan",
+  });
   try {
     inTransaction(database, () => {
       const requestResult = database
@@ -685,8 +727,22 @@ export async function executeDisbursement(input: {
       }
       const facilityResult = database
         .prepare(DISBURSE_FACILITY)
-        .run(occurredAt.toISOString(), input.facilityId);
+        .run(occurredAt.toISOString(), input.deductionRate, input.facilityId);
       if (Number(facilityResult.changes) === 0) {
+        throw new Error("invalid_transition");
+      }
+      createActiveSchedule(database, {
+        facilityId: input.facilityId,
+        principal: request.amount,
+        tenorMonths,
+        annualMarginRateBp: marginRateBp,
+        serviceFeeRateBp: feeRateBp,
+        firstDueDate,
+      });
+      const activation = database
+        .prepare(ACTIVATE_FACILITY)
+        .run(input.facilityId);
+      if (Number(activation.changes) === 0) {
         throw new Error("invalid_transition");
       }
       appendLedgerEntry(database, {
@@ -701,6 +757,7 @@ export async function executeDisbursement(input: {
       });
       appendAudit(database, statusChanged);
       appendAudit(database, executed);
+      appendAudit(database, activated);
     });
   } catch (error) {
     return { ok: false, code: pencairanWriteError(error) };

@@ -8,6 +8,25 @@ const MONTHS_PER_YEAR = 12;
 export const MAX_TENOR_MONTHS = 360;
 export const MAX_RATE_BP = 99_999;
 
+export const INSTALLMENT_STATUSES = [
+  "due",
+  "partially_paid",
+  "paid",
+  "overdue",
+  "waived",
+] as const;
+
+export type InstallmentStatus = (typeof INSTALLMENT_STATUSES)[number];
+
+export function isInstallmentStatus(
+  value: unknown,
+): value is InstallmentStatus {
+  return (
+    typeof value === "string" &&
+    (INSTALLMENT_STATUSES as readonly string[]).includes(value)
+  );
+}
+
 export type ScheduleError =
   | "principal_not_positive"
   | "invalid_tenor"

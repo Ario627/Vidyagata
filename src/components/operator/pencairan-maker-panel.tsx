@@ -19,6 +19,7 @@ import type { PencairanDetail } from "@/data/disbursements";
 import type { OperatorWriteResult } from "@/data/operator";
 import { formatIDR } from "@/lib/format/currency";
 import { formatInstantWib } from "@/lib/format/date";
+import { cn } from "@/lib/utils";
 
 type MakerPanelProps = {
   readonly detail: PencairanDetail;
@@ -31,6 +32,10 @@ type MakerSheet =
   | "initiate"
   | "withdraw"
   | "execute";
+
+const DEDUCTION_RATE_OPTIONS = [20, 40, 60] as const;
+
+type DeductionRate = (typeof DEDUCTION_RATE_OPTIONS)[number];
 
 const INPUT_CLASS =
   "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
@@ -60,6 +65,7 @@ function MakerPanel({ detail }: MakerPanelProps) {
   const [rejectReason, setRejectReason] = useState("");
   const [agreementNote, setAgreementNote] = useState("");
   const [transferReference, setTransferReference] = useState("");
+  const [deductionRate, setDeductionRate] = useState<DeductionRate>(20);
 
   const { permissions, latestRequest } = detail;
 
@@ -94,6 +100,7 @@ function MakerPanel({ detail }: MakerPanelProps) {
         return executeDisbursementAction({
           facilityId: detail.facilityId,
           transferReference,
+          deductionRate,
         });
     }
   }
@@ -110,6 +117,7 @@ function MakerPanel({ detail }: MakerPanelProps) {
       setRejectReason("");
       setAgreementNote("");
       setTransferReference("");
+      setDeductionRate(20);
       router.refresh();
       return;
     }
@@ -371,6 +379,34 @@ function MakerPanel({ detail }: MakerPanelProps) {
           onChange={(event) => setTransferReference(event.target.value)}
           placeholder="mis. TRF-20261014-001"
         />
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-foreground">
+            Potongan penghasilan bulanan
+          </span>
+          <div className="flex items-center gap-2">
+            {DEDUCTION_RATE_OPTIONS.map((rate) => (
+              <button
+                key={rate}
+                type="button"
+                aria-pressed={deductionRate === rate}
+                onClick={() => setDeductionRate(rate)}
+                className={cn(
+                  "min-w-14 rounded-lg border px-3 py-2 text-sm font-medium tabular-nums transition-colors duration-150 ease-out",
+                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                  deductionRate === rate
+                    ? "border-primary bg-primary-subtle text-foreground"
+                    : "border-border bg-surface text-foreground-muted hover:border-border-strong",
+                )}
+              >
+                {rate}%
+              </button>
+            ))}
+          </div>
+          <span className="text-2xs leading-4 text-foreground-subtle">
+            Cicilan pertama jatuh tempo satu bulan setelah pencairan, lalu
+            dipotong otomatis dari penghasilan kerjamu.
+          </span>
+        </div>
       </PencairanDialog>
     </div>
   );

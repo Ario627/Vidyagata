@@ -2,6 +2,7 @@ import { Briefcase, CalendarClock, Compass } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/app/page-header";
+import { Mascot } from "@/components/brand/brand";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 
@@ -33,12 +34,11 @@ function WelcomeCard() {
   return (
     <Card className="mt-6">
       <CardContent className="flex items-start gap-3">
-        <span
-          aria-hidden="true"
-          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-subtle text-xs font-semibold text-primary"
-        >
-          MV
-        </span>
+        <Mascot
+          name="sapa"
+          sizes="56px"
+          className="mascot-float h-12 w-auto shrink-0"
+        />
         <p className="text-sm leading-6 text-foreground">
           Halo! Aku Mbak Vidya. Nanti aku bantu kamu menemukan kerja part-time
           yang cocok dengan jadwal dan skill-mu.

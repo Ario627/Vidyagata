@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Mascot } from "@/components/brand/brand";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { formatIDR } from "@/lib/format/currency";
 import { formatPercentFromBp } from "@/lib/format/percent";
@@ -128,7 +129,15 @@ function LandingHero() {
             Simulasi tanpa daftar dan tanpa data pribadi.
           </p>
         </div>
-        <LandingExampleCard />
+        <div className="mx-auto w-full max-w-sm lg:max-w-none">
+          <Mascot
+            name="sapa"
+            eager
+            sizes="(min-width: 1024px) 208px, (min-width: 640px) 176px, 160px"
+            className="mascot-float mx-auto mb-3 h-40 w-auto sm:h-44 lg:h-52"
+          />
+          <LandingExampleCard />
+        </div>
       </div>
     </section>
   );

@@ -1,8 +1,10 @@
 import "server-only";
+import type { Route } from "next";
 import { isRole, type Role } from "@/domain/account/role";
 import { openAuthDatabase } from "@/lib/db/sqlite";
 import { inTransaction } from "@/lib/db/tx";
 import { newId } from "@/lib/id";
+import { getCurrentUser } from "@/lib/session";
 import { appendAudit, prepareAudit } from "./audit";
 
 export type RoleActor = {
@@ -125,4 +127,11 @@ export async function revokeRole(input: {
     appendAudit(database, prepared);
     return true;
   });
+}
+
+export async function defaultLandingPath(): Promise<Route> {
+  const user = await getCurrentUser();
+  if (user === null) return "/masuk";
+  const roles = await rolesOf(user.id);
+  return roles.has("operator") ? "/operator" : "/dashboard";
 }

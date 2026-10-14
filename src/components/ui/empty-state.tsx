@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 
 type EmptyStateProps = Omit<ComponentProps<"div">, "title" | "children"> & {
   icon?: LucideIcon;
+  illustration?: ReactNode;
   title: string;
   description?: string;
   action?: ReactNode;
@@ -11,6 +12,7 @@ type EmptyStateProps = Omit<ComponentProps<"div">, "title" | "children"> & {
 
 function EmptyState({
   icon: Icon,
+  illustration,
   title,
   description,
   action,
@@ -26,7 +28,11 @@ function EmptyState({
       )}
       {...props}
     >
-      {Icon === undefined ? null : (
+      {illustration !== undefined ? (
+        <span className="flex shrink-0 items-end justify-center">
+          {illustration}
+        </span>
+      ) : Icon === undefined ? null : (
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-surface-raised">
           <Icon
             aria-hidden="true"

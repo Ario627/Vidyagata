@@ -1,4 +1,5 @@
 import type { DisbursementRequestStatus } from "@/domain/financing/disbursement";
+import type { InstallmentStatus } from "@/domain/financing/schedule";
 import type { FinancingStatus } from "@/domain/financing/state-machine";
 import type { AcademicPurpose } from "@/schemas/financing";
 
@@ -62,3 +63,13 @@ export function formatRateBp(basisPoints: number): string {
         .replace(".", ",");
   return `${text}%`;
 }
+
+export const INSTALLMENT_STATUS_META: Readonly<
+  Record<InstallmentStatus, StatusMeta>
+> = {
+  due: { label: "Terjadwal", variant: "neutral" },
+  partially_paid: { label: "Dibayar sebagian", variant: "warning" },
+  paid: { label: "Lunas", variant: "success" },
+  overdue: { label: "Terlambat", variant: "danger" },
+  waived: { label: "Dibebaskan", variant: "info" },
+};

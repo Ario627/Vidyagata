@@ -395,31 +395,65 @@ describe("executeDisbursement", () => {
     const wrongPerson = await executeDisbursement({
       facilityId: "pcfac-000005",
       transferReference: "TRF-2026-0001",
+      deductionRate: 20,
     });
     expect(wrongPerson).toEqual({ ok: false, code: "not_initiator" });
     asOfficer("officer-a");
     const noReference = await executeDisbursement({
       facilityId: "pcfac-000005",
       transferReference: "abc",
+      deductionRate: 20,
     });
     expect(noReference).toEqual({ ok: false, code: "reference_required" });
   });
 
-  it("eksekusi penuh menulis status, ledger, dan audit secara atomik", async () => {
+  it("eksekusi penuh menulis status, jadwal cicilan, ledger, dan audit secara atomik", async () => {
     asOfficer("officer-a");
     const result = await executeDisbursement({
       facilityId: "pcfac-000005",
       transferReference: "TRF-2026-0001",
+      deductionRate: 40,
     });
     expect(result.ok).toBe(true);
     const database = openAuthDatabase();
     const facility = database
       .prepare(
-        "SELECT status, disbursed_at FROM financing_facilities WHERE id = ?",
+        "SELECT status, disbursed_at, payroll_deduction_rate FROM financing_facilities WHERE id = ?",
       )
-      .get("pcfac-000005") as { status: string; disbursed_at: string | null };
-    expect(facility.status).toBe("disbursed");
+      .get("pcfac-000005") as {
+      status: string;
+      disbursed_at: string | null;
+      payroll_deduction_rate: number | null;
+    };
+    expect(facility.status).toBe("active");
     expect(facility.disbursed_at).not.toBeNull();
+    expect(facility.payroll_deduction_rate).toBe(40);
+    const schedule = database
+      .prepare(
+        "SELECT status, tenor_months, first_due_date FROM repayment_schedules WHERE facility_id = ?",
+      )
+      .get("pcfac-000005") as {
+      status: string;
+      tenor_months: number;
+      first_due_date: string;
+    };
+    expect(schedule.status).toBe("active");
+    expect(schedule.tenor_months).toBe(12);
+    const installmentStats = database
+      .prepare(
+        `SELECT COUNT(*) AS total,
+          SUM(CASE WHEN total_amount != principal_amount + margin_amount + fee_amount THEN 1 ELSE 0 END) AS mismatched,
+          MIN(due_date) AS first_date
+        FROM installments WHERE facility_id = ?`,
+      )
+      .get("pcfac-000005") as {
+      total: number;
+      mismatched: number;
+      first_date: string;
+    };
+    expect(installmentStats.total).toBe(12);
+    expect(installmentStats.mismatched).toBe(0);
+    expect(installmentStats.first_date).toBe(schedule.first_due_date);
     const request = database
       .prepare(
         "SELECT id, status, executed_by, transfer_reference FROM disbursement_requests WHERE facility_id = ? AND status = 'executed'",
@@ -449,10 +483,60 @@ describe("executeDisbursement", () => {
     expect(ledger[0]?.amount).toBe(AMOUNT);
     expect(ledger[0]?.idempotency_key).toBe(`disbursement:${request.id}`);
     const audits = database
-      .prepare(
-        "SELECT action FROM audit_logs WHERE entity_id IN (?, ?)",
-      )
+      .prepare("SELECT action FROM audit_logs WHERE entity_id IN (?, ?)")
       .all("pcfac-000005", request.id) as { action: string }[];
     expect(audits.length).toBeGreaterThan(0);
+  });
+
+  it("eksekusi kedua ditolak dan ledger tetap satu baris", async () => {
+    asOfficer("officer-a");
+    const result = await executeDisbursement({
+      facilityId: "pcfac-000005",
+      transferReference: "TRF-2026-0002",
+      deductionRate: 20,
+    });
+    expect(result).toEqual({ ok: false, code: "invalid_transition" });
+    const count = openAuthDatabase()
+      .prepare(
+        "SELECT COUNT(*) AS total FROM ledger_entries WHERE facility_id = ?",
+      )
+      .get("pcfac-000005") as { total: number };
+    expect(count.total).toBe(1);
+  });
+
+  it("ledger tidak bisa diubah maupun dihapus", () => {
+    expect(() =>
+      openAuthDatabase()
+        .prepare("UPDATE ledger_entries SET amount = 1 WHERE facility_id = ?")
+        .run("pcfac-000005"),
+    ).toThrow(/ledger_entries_immutable/);
+    expect(() =>
+      openAuthDatabase()
+        .prepare("DELETE FROM ledger_entries WHERE facility_id = ?")
+        .run("pcfac-000005"),
+    ).toThrow(/ledger_entries_immutable/);
+  });
+});
+
+describe("queue dan detail", () => {
+  it("antrean memuat fasilitas pasca-peninjauan dengan aksi yang benar", async () => {
+    asOfficer("officer-a");
+    const queue = await listPencairanQueue();
+    const ids = queue.active.map((item) => item.facilityId);
+    expect(ids).toContain("pcfac-000001");
+    expect(ids).toContain("pcfac-000003");
+    expect(queue.recent.map((item) => item.facilityId)).toContain(
+      "pcfac-000005",
+    );
+  });
+
+  it("detail membedakan izin pengaju dan penyetuju", async () => {
+    asOfficer("officer-a");
+    const asInitiator = await getPencairanDetail("pcfac-000003");
+    expect(asInitiator?.permissions.initiate).toBe(true);
+    asOfficer("officer-b");
+    const asOther = await getPencairanDetail("pcfac-000003");
+    expect(asOther?.permissions.initiate).toBe(true);
+    expect(asOther?.permissions.decide).toBe(false);
   });
 });

@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EmailSignIn } from "@/components/auth/email-sign-in";
+import { defaultLandingPath } from "@/data/roles";
 import { hasActiveAgeBan } from "@/lib/age-ban";
 import { safeNextPath } from "@/lib/next-path";
 import { getCurrentUser } from "@/lib/session";
@@ -20,7 +21,7 @@ export default async function MasukPage({ searchParams }: PageProps<"/masuk">) {
   const nextPath = safeNextPath(params.next);
   const user = await getCurrentUser();
   if (user !== null) {
-    redirect((nextPath ?? "/dashboard") as Route);
+    redirect((nextPath ?? (await defaultLandingPath())) as Route);
   }
   if (hasActiveAgeBan(await headers())) {
     redirect("/daftar/usia-belum-cukup" as Route);

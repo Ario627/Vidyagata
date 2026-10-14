@@ -18,6 +18,9 @@ const PENCAIRAN_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   lender_unavailable: "Parameter mitra pembiayaan belum tersedia.",
   facility_incomplete: "Data pembiayaan belum lengkap untuk tahap ini.",
   already_recorded: "Transaksi ini sudah pernah tercatat di ledger.",
+  schedule_exists: "Jadwal cicilan untuk pengajuan ini sudah dibuat.",
+  internal_error:
+    "Ada gangguan saat menyusun jadwal cicilan. Coba lagi sebentar lagi.",
 };
 
 export function pencairanErrorMessage(code: string): string {

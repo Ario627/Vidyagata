@@ -24,13 +24,14 @@ function MbakVidyaBanner<T extends string>({
       data-slot="mbak-vidya-banner"
       href={href}
       className={cn(
-        "flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground",
+        "group flex items-center gap-3 rounded-xl bg-primary px-4 py-3 text-primary-foreground",
+        "transition-transform duration-200 ease-out hover:-translate-y-0.5 active:scale-[0.99]",
         "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-foreground",
         className,
       )}
     >
       {avatar === undefined ? null : (
-        <span className="flex size-9 shrink-0 overflow-hidden rounded-full">
+        <span className="mascot-float flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-surface">
           {avatar}
         </span>
       )}
@@ -41,7 +42,7 @@ function MbakVidyaBanner<T extends string>({
       <ChevronRight
         aria-hidden="true"
         strokeWidth={2}
-        className="size-4 shrink-0"
+        className="size-4 shrink-0 transition-transform duration-200 ease-out group-hover:translate-x-0.5"
       />
     </Link>
   );
