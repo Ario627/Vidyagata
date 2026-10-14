@@ -29,7 +29,7 @@ export default async function ProfilKeamananPage() {
       <div className="mt-4 flex flex-col gap-3">
         <ClockSkewNotice serverNow={new Date().toISOString()} />
         <TwoFactorSetup
-          enabled={isTwoFactorEnabled(user.id)}
+          enabled={await isTwoFactorEnabled(user.id)}
           scope="personal"
         />
       </div>

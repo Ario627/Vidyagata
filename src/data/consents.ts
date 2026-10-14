@@ -1,6 +1,5 @@
 import "server-only";
-import type { DatabaseSync } from "node:sqlite";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { type Db, db } from "@/lib/db/client";
 import { inTransaction } from "@/lib/db/tx";
 import { newId } from "@/lib/id";
 import { getCurrentUser } from "@/lib/session";
@@ -74,12 +73,12 @@ function toDefinition(row: ConsentDefinitionRow): ConsentDefinition {
   };
 }
 
-function activeDefinitionAt(
-  database: DatabaseSync,
+async function activeDefinitionAt(
+  database: Db,
   key: string,
   at: string,
-): ConsentDefinition | null {
-  const row = database.prepare(SELECT_ACTIVE_DEFINITION).get(key, at) as
+): Promise<ConsentDefinition | null> {
+  const row = (await database.prepare(SELECT_ACTIVE_DEFINITION).get(key, at)) as
     | ConsentDefinitionRow
     | undefined;
   return row === undefined ? null : toDefinition(row);
@@ -90,24 +89,23 @@ function isUniqueViolation(error: unknown): boolean {
   return /UNIQUE constraint failed/i.test(message);
 }
 
-export function activeConsentDefinition(
+export async function activeConsentDefinition(
   key: string,
   at: string,
-): ConsentDefinition | null {
-  return activeDefinitionAt(openAuthDatabase(), key, at);
+): Promise<ConsentDefinition | null> {
+  return activeDefinitionAt(db, key, at);
 }
 
 export async function hasActiveConsent(key: string): Promise<boolean> {
   const user = await getCurrentUser();
   if (user === null) return false;
-  const database = openAuthDatabase();
-  const definition = activeDefinitionAt(
-    database,
+  const definition = await activeDefinitionAt(
+    db,
     key,
     new Date().toISOString(),
   );
   if (definition === null) return false;
-  const row = database
+  const row = await db
     .prepare(SELECT_ACTIVE_RECORD)
     .get(user.id, definition.id);
   return row !== undefined;
@@ -118,10 +116,9 @@ export async function recordConsent(
 ): Promise<ConsentRecord> {
   const user = await getCurrentUser();
   if (user === null) throw new Error("unauthenticated");
-  const database = openAuthDatabase();
   const occurredAt = new Date();
   const grantedAt = occurredAt.toISOString();
-  const definition = activeDefinitionAt(database, grant.key, grantedAt);
+  const definition = await activeDefinitionAt(db, grant.key, grantedAt);
   if (definition === null) throw new Error("consent_not_defined");
   const record: ConsentRecord = {
     id: newId(occurredAt.getTime()),
@@ -145,8 +142,8 @@ export async function recordConsent(
     },
   });
   try {
-    inTransaction(database, () => {
-      database
+    await inTransaction(db, async () => {
+      await db
         .prepare(INSERT_CONSENT_RECORD)
         .run(
           record.id,
@@ -159,7 +156,7 @@ export async function recordConsent(
           prepared.context.ipAddress,
           prepared.context.userAgent,
         );
-      appendAudit(database, prepared);
+      await appendAudit(db, prepared);
     });
   } catch (error) {
     if (isUniqueViolation(error)) throw new Error("consent_already_active");
@@ -178,13 +175,13 @@ export async function withdrawConsent(recordId: string): Promise<boolean> {
     entityType: "consent_record",
     entityId: recordId,
   });
-  const database = openAuthDatabase();
-  return inTransaction(database, () => {
-    const result = database
+  const database = db;
+  return inTransaction(database, async () => {
+    const result = await database
       .prepare(WITHDRAW_CONSENT)
       .run(prepared.occurredAt.toISOString(), recordId, user.id);
-    if (Number(result.changes) === 0) return false;
-    appendAudit(database, prepared);
+    if (result.changes === 0) return false;
+    await appendAudit(database, prepared);
     return true;
   });
 }

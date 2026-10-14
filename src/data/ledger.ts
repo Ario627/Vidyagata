@@ -1,5 +1,5 @@
 import "server-only";
-import type { DatabaseSync } from "node:sqlite";
+import type { Db } from "@/lib/db/client";
 import { newId } from "@/lib/id";
 
 export const LEDGER_ENTRY_TYPES = [
@@ -30,13 +30,13 @@ const INSERT_LEDGER_ENTRY = `INSERT INTO ledger_entries (
   currency, occurred_at, recorded_at, recorded_by, memo, created_at
 ) VALUES (?, ?, ?, ?, ?, ?, 'IDR', ?, ?, ?, ?, ?)`;
 
-export function appendLedgerEntry(
-  database: DatabaseSync,
+export async function appendLedgerEntry(
+  database: Db,
   input: LedgerEntryInput,
-): string {
+): Promise<string> {
   const id = newId();
   const recordedAt = new Date().toISOString();
-  database
+  await database
     .prepare(INSERT_LEDGER_ENTRY)
     .run(
       id,

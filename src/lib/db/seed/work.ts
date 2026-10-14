@@ -1,4 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { Db } from "@/lib/db/client";
 
 type EmployerSeed = {
   readonly id: string;
@@ -165,40 +165,34 @@ const INSERT_SKILL = `INSERT INTO job_posting_skills (job_posting_id, skill)
 VALUES (?, ?)
 ON CONFLICT DO NOTHING`;
 
-export function applyWorkSeeds(database: DatabaseSync): void {
+export async function applyWorkSeeds(database: Db): Promise<void> {
   const createdAt = new Date().toISOString();
-  const insertEmployer = database.prepare(INSERT_EMPLOYER);
   for (const seed of EMPLOYER_SEEDS) {
-    insertEmployer.run(
-      seed.id,
-      seed.name,
-      seed.sector,
-      seed.city,
-      createdAt,
-      createdAt,
-    );
+    await database
+      .prepare(INSERT_EMPLOYER)
+      .run(seed.id, seed.name, seed.sector, seed.city, createdAt, createdAt);
   }
-  const insertJob = database.prepare(INSERT_JOB);
-  const insertSkill = database.prepare(INSERT_SKILL);
   for (const seed of JOB_SEEDS) {
-    insertJob.run(
-      seed.id,
-      seed.employerId,
-      seed.title,
-      seed.description,
-      seed.jobType,
-      seed.weeklyHours,
-      seed.compensationType,
-      seed.compensationMin,
-      seed.compensationMax,
-      seed.locationType,
-      seed.city,
-      seed.publishedAt,
-      createdAt,
-      createdAt,
-    );
+    await database
+      .prepare(INSERT_JOB)
+      .run(
+        seed.id,
+        seed.employerId,
+        seed.title,
+        seed.description,
+        seed.jobType,
+        seed.weeklyHours,
+        seed.compensationType,
+        seed.compensationMin,
+        seed.compensationMax,
+        seed.locationType,
+        seed.city,
+        seed.publishedAt,
+        createdAt,
+        createdAt,
+      );
     for (const skill of seed.skills) {
-      insertSkill.run(seed.id, skill);
+      await database.prepare(INSERT_SKILL).run(seed.id, skill);
     }
   }
 }

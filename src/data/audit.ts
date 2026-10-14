@@ -1,7 +1,6 @@
 import "server-only";
-import type { DatabaseSync } from "node:sqlite";
 import { headers } from "next/headers";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { type Db, db } from "@/lib/db/client";
 import { newId } from "@/lib/id";
 
 export type AuditActorType = "user" | "operator" | "system" | "external";
@@ -67,12 +66,12 @@ async function requestContext(): Promise<AuditContext> {
   };
 }
 
-export function appendAudit(
-  database: DatabaseSync,
+export async function appendAudit(
+  database: Db,
   prepared: PreparedAudit,
-): void {
+): Promise<void> {
   const { event, reason, context, occurredAt } = prepared;
-  database
+  await database
     .prepare(INSERT_AUDIT)
     .run(
       newId(occurredAt.getTime()),
@@ -111,5 +110,5 @@ export async function prepareAudit(event: AuditEvent): Promise<PreparedAudit> {
 
 export async function recordAudit(event: AuditEvent): Promise<void> {
   const prepared = await prepareAudit(event);
-  appendAudit(openAuthDatabase(), prepared);
+  await appendAudit(db, prepared);
 }

@@ -58,27 +58,27 @@ describe("totpCodeFingerprint", () => {
 });
 
 describe("wasTotpCodeUsed dan markTotpCodeUsed", () => {
-  it("mengembalikan false saat belum ada kode yang dipakai", () => {
-    expect(wasTotpCodeUsed("guard-user-1", "111111")).toBe(false);
+  it("mengembalikan false saat belum ada kode yang dipakai", async () => {
+    expect(await wasTotpCodeUsed("guard-user-1", "111111")).toBe(false);
   });
 
-  it("mengembalikan true setelah kode ditandai dipakai", () => {
-    markTotpCodeUsed("guard-user-1", "111111");
-    expect(wasTotpCodeUsed("guard-user-1", "111111")).toBe(true);
+  it("mengembalikan true setelah kode ditandai dipakai", async () => {
+    await markTotpCodeUsed("guard-user-1", "111111");
+    expect(await wasTotpCodeUsed("guard-user-1", "111111")).toBe(true);
   });
 
-  it("hanya menyimpan kode terakhir sebagai yang terpakai", () => {
-    markTotpCodeUsed("guard-user-1", "222222");
-    expect(wasTotpCodeUsed("guard-user-1", "111111")).toBe(false);
-    expect(wasTotpCodeUsed("guard-user-1", "222222")).toBe(true);
+  it("hanya menyimpan kode terakhir sebagai yang terpakai", async () => {
+    await markTotpCodeUsed("guard-user-1", "222222");
+    expect(await wasTotpCodeUsed("guard-user-1", "111111")).toBe(false);
+    expect(await wasTotpCodeUsed("guard-user-1", "222222")).toBe(true);
   });
 
-  it("tidak membocorkan pemakaian ke pengguna lain", () => {
-    expect(wasTotpCodeUsed("guard-user-2", "222222")).toBe(false);
+  it("tidak membocorkan pemakaian ke pengguna lain", async () => {
+    expect(await wasTotpCodeUsed("guard-user-2", "222222")).toBe(false);
   });
 
-  it("mengembalikan false untuk pengguna yang tidak ada", () => {
-    expect(wasTotpCodeUsed("guard-user-ghost", "222222")).toBe(false);
+  it("mengembalikan false untuk pengguna yang tidak ada", async () => {
+    expect(await wasTotpCodeUsed("guard-user-ghost", "222222")).toBe(false);
   });
 
   it("gagal tertutup di produksi tanpa BETTER_AUTH_SECRET", () => {

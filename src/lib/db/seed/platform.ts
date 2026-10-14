@@ -1,4 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { Db } from "@/lib/db/client";
 import { newId } from "@/lib/id";
 
 type ParameterSeed = {
@@ -59,31 +59,33 @@ const INSERT_CONSENT = `INSERT INTO consents (
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(key, version) DO NOTHING`;
 
-export function applyPlatformSeeds(database: DatabaseSync): void {
+export async function applyPlatformSeeds(database: Db): Promise<void> {
   const createdAt = new Date().toISOString();
-  const insertParameter = database.prepare(INSERT_PARAMETER);
   for (const seed of PARAMETER_SEEDS) {
-    insertParameter.run(
-      newId(),
-      seed.key,
-      JSON.stringify(seed.value),
-      EFFECTIVE_FROM,
-      PARAMETER_SOURCE,
-      PARAMETER_NOTE,
-      createdAt,
-    );
+    await database
+      .prepare(INSERT_PARAMETER)
+      .run(
+        newId(),
+        seed.key,
+        JSON.stringify(seed.value),
+        EFFECTIVE_FROM,
+        PARAMETER_SOURCE,
+        PARAMETER_NOTE,
+        createdAt,
+      );
   }
-  const insertConsent = database.prepare(INSERT_CONSENT);
   for (const seed of CONSENT_SEEDS) {
-    insertConsent.run(
-      newId(),
-      seed.key,
-      CONSENT_VERSION,
-      seed.title,
-      seed.body,
-      seed.legalBasis,
-      EFFECTIVE_FROM,
-      createdAt,
-    );
+    await database
+      .prepare(INSERT_CONSENT)
+      .run(
+        newId(),
+        seed.key,
+        CONSENT_VERSION,
+        seed.title,
+        seed.body,
+        seed.legalBasis,
+        EFFECTIVE_FROM,
+        createdAt,
+      );
   }
 }

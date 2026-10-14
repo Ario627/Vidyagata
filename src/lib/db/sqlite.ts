@@ -9,9 +9,6 @@ import { PLATFORM_SCHEMA } from "./schema/platform";
 import { REGULATORY_SCHEMA } from "./schema/regulatory";
 import { SEQUENCE_SCHEMA } from "./schema/sequences";
 import { WORK_SCHEMA } from "./schema/work";
-import { applyIdentitySeeds } from "./seed/identity";
-import { applyPlatformSeeds } from "./seed/platform";
-import { applyWorkSeeds } from "./seed/work";
 
 const DATA_DIRECTORY = ".data";
 const DATABASE_FILE = "auth.db";
@@ -173,9 +170,6 @@ export function openAuthDatabase(): DatabaseSync {
   execWithRetry(database, SEQUENCE_SCHEMA);
   execWithRetry(database, WORK_SCHEMA);
   ensureAdditiveColumns(database);
-  applyPlatformSeeds(database);
-  applyIdentitySeeds(database);
-  applyWorkSeeds(database);
   instance = database;
   return database;
 }

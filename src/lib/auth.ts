@@ -81,7 +81,7 @@ export const auth = betterAuth({
       if (typeof userId !== "string") return;
       const submitted = (ctx.body as { code?: unknown } | undefined)?.code;
       if (typeof submitted !== "string" || submitted.length === 0) return;
-      if (wasTotpCodeUsed(userId, submitted)) {
+      if (await wasTotpCodeUsed(userId, submitted)) {
         throw APIError.from("TOO_MANY_REQUESTS", {
           message:
             "Kode ini sudah dipakai. Tunggu kode berikutnya lalu coba lagi.",
@@ -95,7 +95,7 @@ export const auth = betterAuth({
       if (user === null || user === undefined) return;
       const submitted = (ctx.body as { code?: unknown } | undefined)?.code;
       if (typeof submitted !== "string" || submitted.length === 0) return;
-      markTotpCodeUsed(user.id, submitted);
+      await markTotpCodeUsed(user.id, submitted);
     }),
   },
   plugins: [

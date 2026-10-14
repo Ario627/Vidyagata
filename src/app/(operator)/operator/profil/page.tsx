@@ -45,7 +45,7 @@ export default async function OperatorProfilePage() {
   const actor = await requireRole("operator");
   const user = await getCurrentUser();
   const assignments = await listMyRoleAssignments();
-  const mfaEnabled = isTwoFactorEnabled(actor.id);
+  const mfaEnabled = await isTwoFactorEnabled(actor.id);
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
       <PageHeader

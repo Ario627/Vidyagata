@@ -7,7 +7,7 @@ import {
   resolveRegulatoryParameters,
 } from "@/domain/regulatory/parameters";
 import type { Result } from "@/domain/shared/result";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { db } from "@/lib/db/client";
 
 type ParameterRow = {
   key: string;
@@ -31,13 +31,15 @@ function toRecord(row: ParameterRow): RegulatoryParameterRecord {
   };
 }
 
-export function allParameterRecords(): readonly RegulatoryParameterRecord[] {
-  const rows = openAuthDatabase().prepare(SELECT_ALL).all() as ParameterRow[];
+export async function allParameterRecords(): Promise<
+  readonly RegulatoryParameterRecord[]
+> {
+  const rows = (await db.prepare(SELECT_ALL).all()) as ParameterRow[];
   return rows.map(toRecord);
 }
 
-export function resolveActiveParameters(
+export async function resolveActiveParameters(
   at: string,
-): Result<RegulatoryParameterSet, RegulatoryParameterError> {
-  return resolveRegulatoryParameters(allParameterRecords(), at);
+): Promise<Result<RegulatoryParameterSet, RegulatoryParameterError>> {
+  return resolveRegulatoryParameters(await allParameterRecords(), at);
 }

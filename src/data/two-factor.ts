@@ -1,13 +1,13 @@
 import "server-only";
 import { cache } from "react";
 import { type Actor, requireRole } from "@/data/dal";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { asFlag, db } from "@/lib/db/client";
 
-export function isTwoFactorEnabled(userId: string): boolean {
-  const row = openAuthDatabase()
-    .prepare("SELECT twoFactorEnabled FROM user WHERE id = ?")
-    .get(userId) as { twoFactorEnabled: number | null } | undefined;
-  return row !== undefined && row.twoFactorEnabled === 1;
+export async function isTwoFactorEnabled(userId: string): Promise<boolean> {
+  const row = (await db
+    .prepare('SELECT "twoFactorEnabled" FROM "user" WHERE "id" = ?')
+    .get(userId)) as { twoFactorEnabled: number | boolean | null } | undefined;
+  return row !== undefined && asFlag(row.twoFactorEnabled);
 }
 
 export type OperatorMfaGate = {
@@ -17,5 +17,5 @@ export type OperatorMfaGate = {
 
 export const requireOperatorMfa = cache(async (): Promise<OperatorMfaGate> => {
   const actor = await requireRole("operator");
-  return { actor, mfaRequired: !isTwoFactorEnabled(actor.id) };
+  return { actor, mfaRequired: !(await isTwoFactorEnabled(actor.id)) };
 });

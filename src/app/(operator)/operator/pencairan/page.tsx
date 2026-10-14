@@ -96,7 +96,6 @@ function QueueCard({ item }: { readonly item: PencairanQueueItem }) {
     >
       <Card className="gap-2 transition-colors duration-150 ease-out hover:border-border-strong">
         <CardContent className="flex items-start justify-between gap-3">
-            
           <div className="flex min-w-0 flex-col gap-0.5">
             <span className="font-mono text-2xs text-foreground-subtle">
               {item.publicRef}

@@ -1,5 +1,4 @@
 import "server-only";
-import type { DatabaseSync } from "node:sqlite";
 import { requireRole } from "@/data/dal";
 import { isTwoFactorEnabled } from "@/data/two-factor";
 import type { AcademicStatus } from "@/domain/financing/eligibility";
@@ -12,7 +11,7 @@ import {
 import type { FinancingStatus } from "@/domain/financing/state-machine";
 import { checkTransition } from "@/domain/financing/state-machine";
 import { type Rupiah, rupiah } from "@/domain/money/money";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { type Db, db } from "@/lib/db/client";
 import { inTransaction } from "@/lib/db/tx";
 import { newId } from "@/lib/id";
 import { appendAudit, prepareAudit } from "./audit";
@@ -128,19 +127,21 @@ function toQueueItem(row: QueueRow, officerId: string): QueueItem {
   };
 }
 
-function selectQueueRow(
-  database: DatabaseSync,
+async function selectQueueRow(
+  database: Db,
   facilityId: string,
-): ReviewRow | null {
-  const row = database.prepare(SELECT_REVIEW).get(facilityId) as
+): Promise<ReviewRow | null> {
+  const row = (await database.prepare(SELECT_REVIEW).get(facilityId)) as
     | ReviewRow
     | undefined;
   return row ?? null;
 }
 
-function eligibilityOf(row: ReviewRow): EligibilityAssessment | null {
+async function eligibilityOf(
+  row: ReviewRow,
+): Promise<EligibilityAssessment | null> {
   if (row.requested_amount === null) return null;
-  const terms = getPilotLenderTerms();
+  const terms = await getPilotLenderTerms();
   if (terms === null) return null;
   const input: EligibilityInput = {
     academicStatus: row.academic_status as EligibilityInput["academicStatus"],
@@ -181,10 +182,16 @@ function toReviewDetail(
 
 function operatorWriteError(error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("officer_portfolios.facility_id")) {
+  if (
+    message.includes("officer_portfolios.facility_id") ||
+    message.includes("officer_portfolios_facility_id_key")
+  ) {
     return new Error("already_claimed");
   }
-  if (message.includes("FOREIGN KEY constraint failed")) {
+  if (
+    /FOREIGN KEY constraint failed/.test(message) ||
+    /violates foreign key constraint/.test(message)
+  ) {
     return new Error("facility_not_found");
   }
   return error instanceof Error ? error : new Error(message);
@@ -192,7 +199,7 @@ function operatorWriteError(error: unknown): Error {
 
 export async function listReviewQueue(): Promise<readonly QueueItem[]> {
   const actor = await requireRole("operator");
-  const rows = openAuthDatabase().prepare(SELECT_QUEUE).all() as QueueRow[];
+  const rows = (await db.prepare(SELECT_QUEUE).all()) as QueueRow[];
   return rows.map((row) => toQueueItem(row, actor.id));
 }
 
@@ -200,10 +207,10 @@ export async function getReviewDetail(
   facilityId: string,
 ): Promise<ReviewDetail | null> {
   const actor = await requireRole("operator");
-  const database = openAuthDatabase();
-  const row = selectQueueRow(database, facilityId);
+  const database = db;
+  const row = await selectQueueRow(database, facilityId);
   if (row === null) return null;
-  const eligibility = eligibilityOf(row);
+  const eligibility = await eligibilityOf(row);
   if (eligibility === null) return null;
   const claimedByOther = row.officer_id !== null && row.officer_id !== actor.id;
   if (claimedByOther) return null;
@@ -214,9 +221,10 @@ export async function claimFacility(
   facilityId: string,
 ): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!isTwoFactorEnabled(actor.id)) return { ok: false, code: "mfa_required" };
-  const database = openAuthDatabase();
-  const current = selectQueueRow(database, facilityId);
+  if (!(await isTwoFactorEnabled(actor.id)))
+    return { ok: false, code: "mfa_required" };
+  const database = db;
+  const current = await selectQueueRow(database, facilityId);
   if (current === null) return { ok: false, code: "facility_not_found" };
   if (current.status !== "submitted") {
     return { ok: false, code: "invalid_transition" };
@@ -233,8 +241,8 @@ export async function claimFacility(
     reason: "Klaim antrian untuk peninjauan",
   });
   try {
-    inTransaction(database, () => {
-      database
+    await inTransaction(database, async () => {
+      await database
         .prepare(INSERT_PORTFOLIO)
         .run(
           newId(occurredAt.getTime()),
@@ -243,11 +251,11 @@ export async function claimFacility(
           occurredAt.toISOString(),
           occurredAt.toISOString(),
         );
-      const result = database.prepare(CLAIM_FACILITY).run(facilityId);
-      if (Number(result.changes) === 0) {
+      const result = await database.prepare(CLAIM_FACILITY).run(facilityId);
+      if (result.changes === 0) {
         throw new Error("invalid_transition");
       }
-      appendAudit(database, prepared);
+      await appendAudit(database, prepared);
     });
   } catch (error) {
     return { ok: false, code: operatorWriteError(error).message };
@@ -260,9 +268,10 @@ export async function forwardFacility(input: {
   readonly reason?: string;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!isTwoFactorEnabled(actor.id)) return { ok: false, code: "mfa_required" };
-  const database = openAuthDatabase();
-  const row = selectQueueRow(database, input.facilityId);
+  if (!(await isTwoFactorEnabled(actor.id)))
+    return { ok: false, code: "mfa_required" };
+  const database = db;
+  const row = await selectQueueRow(database, input.facilityId);
   if (row === null || row.officer_id !== actor.id) {
     return { ok: false, code: "facility_not_found" };
   }
@@ -272,9 +281,9 @@ export async function forwardFacility(input: {
     "operator",
   );
   if (!transition.ok) return { ok: false, code: "invalid_transition" };
-  const terms = getPilotLenderTerms();
+  const terms = await getPilotLenderTerms();
   if (terms === null) return { ok: false, code: "lender_unavailable" };
-  const eligibility = eligibilityOf(row);
+  const eligibility = await eligibilityOf(row);
   if (eligibility === null)
     return { ok: false, code: "eligibility_unavailable" };
   const reason = input.reason?.trim() ?? "";
@@ -298,8 +307,8 @@ export async function forwardFacility(input: {
     reason: reason === "" ? "Skor kelayakan memenuhi ambang" : reason,
   });
   try {
-    inTransaction(database, () => {
-      database
+    await inTransaction(database, async () => {
+      await database
         .prepare(INSERT_ASSESSMENT)
         .run(
           newId(occurredAt.getTime()),
@@ -311,13 +320,13 @@ export async function forwardFacility(input: {
           occurredAt.toISOString(),
           occurredAt.toISOString(),
         );
-      const result = database
+      const result = await database
         .prepare(FORWARD_FACILITY)
         .run(terms.lenderId, input.facilityId);
-      if (Number(result.changes) === 0) {
+      if (result.changes === 0) {
         throw new Error("invalid_transition");
       }
-      appendAudit(database, prepared);
+      await appendAudit(database, prepared);
     });
   } catch (error) {
     return { ok: false, code: operatorWriteError(error).message };
@@ -330,11 +339,12 @@ export async function rejectFacility(input: {
   readonly reason: string;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!isTwoFactorEnabled(actor.id)) return { ok: false, code: "mfa_required" };
+  if (!(await isTwoFactorEnabled(actor.id)))
+    return { ok: false, code: "mfa_required" };
   const reason = input.reason.trim();
   if (reason === "") return { ok: false, code: "reason_required" };
-  const database = openAuthDatabase();
-  const row = selectQueueRow(database, input.facilityId);
+  const database = db;
+  const row = await selectQueueRow(database, input.facilityId);
   if (row === null || row.officer_id !== actor.id) {
     return { ok: false, code: "facility_not_found" };
   }
@@ -356,14 +366,14 @@ export async function rejectFacility(input: {
     reason,
   });
   try {
-    inTransaction(database, () => {
-      const result = database
+    await inTransaction(database, async () => {
+      const result = await database
         .prepare(REJECT_FACILITY)
         .run(occurredAt.toISOString(), input.facilityId);
-      if (Number(result.changes) === 0) {
+      if (result.changes === 0) {
         throw new Error("invalid_transition");
       }
-      appendAudit(database, prepared);
+      await appendAudit(database, prepared);
     });
   } catch (error) {
     return { ok: false, code: operatorWriteError(error).message };

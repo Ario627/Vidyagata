@@ -1,5 +1,4 @@
 import "server-only";
-import type { DatabaseSync } from "node:sqlite";
 import type { BetterAuthOptions } from "better-auth";
 import {
   type AdapterFactory,
@@ -7,10 +6,9 @@ import {
   createAdapterFactory,
   type Where,
 } from "better-auth/adapters";
-import { openAuthDatabase } from "./sqlite";
+import { type Db, db, type SqlValue } from "./client";
 
 type CleanedWhere = Required<Where>;
-type SqlValue = string | number | null;
 type SortBy = { readonly field: string; readonly direction: "asc" | "desc" };
 type Condition = {
   readonly clause: string;
@@ -36,14 +34,14 @@ function identifierOf(value: string): string {
   if (!IDENTIFIER.test(value)) {
     throw new Error(`Identifier SQL tidak valid: ${value}`);
   }
-  return value;
+  return `"${value}"`;
 }
 
 function toSqlValue(value: unknown): SqlValue {
   if (value === null || value === undefined) return null;
-  if (typeof value === "boolean") return value ? 1 : 0;
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "number") return value;
+  if (typeof value === "boolean") return value;
   if (typeof value === "string") return value;
   return JSON.stringify(value);
 }
@@ -70,8 +68,9 @@ function equalityCondition(where: CleanedWhere): Condition | null {
     }
     return { clause: "0 = 1", params: [] };
   }
-  const suffix = where.mode === "insensitive" ? " COLLATE NOCASE" : "";
-  return { clause: `${column}${suffix} ${comparison} ?`, params: [value] };
+  const suffix = where.mode === "insensitive" ? `LOWER(${column})` : column;
+  const operand = where.mode === "insensitive" ? "LOWER(?)" : "?";
+  return { clause: `${suffix} ${comparison} ${operand}`, params: [value] };
 }
 
 function membershipCondition(where: CleanedWhere): Condition | null {
@@ -147,24 +146,24 @@ function entriesOf(data: Record<string, unknown>): {
 
 const tableColumns = new Map<string, ReadonlySet<string>>();
 
-function columnsOf(database: DatabaseSync, model: string): ReadonlySet<string> {
+async function columnsOf(
+  database: Db,
+  model: string,
+): Promise<ReadonlySet<string>> {
   const cached = tableColumns.get(model);
   if (cached !== undefined) return cached;
-  const entries = database
-    .prepare(`PRAGMA table_info(${identifierOf(model)})`)
-    .all() as { name: string }[];
-  const columns = new Set(entries.map((entry) => entry.name));
+  const columns = await database.columnNames(model);
   tableColumns.set(model, columns);
   return columns;
 }
 
-function withTimestamps(
-  database: DatabaseSync,
+async function withTimestamps(
+  database: Db,
   model: string,
   data: Record<string, unknown>,
   fields: readonly string[],
-): Record<string, unknown> {
-  const columns = columnsOf(database, model);
+): Promise<Record<string, unknown>> {
+  const columns = await columnsOf(database, model);
   const stamped = { ...data };
   const now = new Date();
   for (const field of fields) {
@@ -173,7 +172,7 @@ function withTimestamps(
   return stamped;
 }
 
-function createHandlers(database: DatabaseSync): CustomAdapter {
+function createHandlers(database: Db): CustomAdapter {
   return {
     async create<T extends Record<string, unknown>>({
       data,
@@ -184,12 +183,12 @@ function createHandlers(database: DatabaseSync): CustomAdapter {
       data: T;
       select?: string[] | undefined;
     }): Promise<T> {
-      const stamped = withTimestamps(database, model, data, [
+      const stamped = await withTimestamps(database, model, data, [
         "createdAt",
         "updatedAt",
       ]);
       const { columns, values } = entriesOf(stamped);
-      const row = database
+      const row = await database
         .prepare(
           `INSERT INTO ${identifierOf(model)} (${columns.join(", ")}) VALUES (${placeholdersOf(columns.length)}) RETURNING ${selectionOf(select)}`,
         )
@@ -206,7 +205,7 @@ function createHandlers(database: DatabaseSync): CustomAdapter {
       where: CleanedWhere[];
       update: T;
     }): Promise<T | null> {
-      const stamped = withTimestamps(
+      const stamped = await withTimestamps(
         database,
         model,
         update as Record<string, unknown>,
@@ -215,7 +214,7 @@ function createHandlers(database: DatabaseSync): CustomAdapter {
       const { columns, values } = entriesOf(stamped);
       const assignments = columns.map((column) => `${column} = ?`).join(", ");
       const condition = whereClauseOf(where);
-      const row = database
+      const row = await database
         .prepare(
           `UPDATE ${identifierOf(model)} SET ${assignments}${condition.clause} RETURNING *`,
         )
@@ -224,16 +223,18 @@ function createHandlers(database: DatabaseSync): CustomAdapter {
     },
 
     async updateMany({ where, model, update }) {
-      const stamped = withTimestamps(database, model, update, ["updatedAt"]);
+      const stamped = await withTimestamps(database, model, update, [
+        "updatedAt",
+      ]);
       const { columns, values } = entriesOf(stamped);
       const assignments = columns.map((column) => `${column} = ?`).join(", ");
       const condition = whereClauseOf(where);
-      const result = database
+      const result = await database
         .prepare(
           `UPDATE ${identifierOf(model)} SET ${assignments}${condition.clause}`,
         )
         .run(...values, ...condition.params);
-      return Number(result.changes);
+      return result.changes;
     },
 
     async findOne<T>({
@@ -246,7 +247,7 @@ function createHandlers(database: DatabaseSync): CustomAdapter {
       select?: string[] | undefined;
     }): Promise<T | null> {
       const condition = whereClauseOf(where);
-      const row = database
+      const row = await database
         .prepare(
           `SELECT ${selectionOf(select)} FROM ${identifierOf(model)}${condition.clause} LIMIT 1`,
         )
@@ -280,7 +281,7 @@ function createHandlers(database: DatabaseSync): CustomAdapter {
         pagination += " OFFSET ?";
         params.push(offset);
       }
-      const rows = database
+      const rows = await database
         .prepare(
           `SELECT ${selectionOf(select)} FROM ${identifierOf(model)}${condition.clause}${sortingOf(sortBy)}${pagination}`,
         )
@@ -290,26 +291,26 @@ function createHandlers(database: DatabaseSync): CustomAdapter {
 
     async delete({ where, model }) {
       const condition = whereClauseOf(where);
-      database
+      await database
         .prepare(`DELETE FROM ${identifierOf(model)}${condition.clause}`)
         .run(...condition.params);
     },
 
     async deleteMany({ where, model }) {
       const condition = whereClauseOf(where);
-      const result = database
+      const result = await database
         .prepare(`DELETE FROM ${identifierOf(model)}${condition.clause}`)
         .run(...condition.params);
-      return Number(result.changes);
+      return result.changes;
     },
 
     async count({ where, model }) {
       const condition = whereClauseOf(where);
-      const row = database
+      const row = (await database
         .prepare(
           `SELECT COUNT(*) AS total FROM ${identifierOf(model)}${condition.clause}`,
         )
-        .get(...condition.params) as { total: number } | undefined;
+        .get(...condition.params)) as { total: number } | undefined;
       return row?.total ?? 0;
     },
   };
@@ -326,6 +327,6 @@ export function createAuthDatabase(): AdapterFactory<BetterAuthOptions> {
       supportsNumericIds: false,
       transaction: false,
     },
-    adapter: () => createHandlers(openAuthDatabase()),
+    adapter: () => createHandlers(db),
   });
 }

@@ -1,5 +1,4 @@
 import "server-only";
-import type { DatabaseSync } from "node:sqlite";
 import { requireRole } from "@/data/dal";
 import { isTwoFactorEnabled } from "@/data/two-factor";
 import { jakartaPlainDateOf } from "@/domain/account/age";
@@ -11,7 +10,7 @@ import {
 import type { FinancingStatus } from "@/domain/financing/state-machine";
 import { checkTransition } from "@/domain/financing/state-machine";
 import { type Rupiah, rupiah } from "@/domain/money/money";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { type Db, db } from "@/lib/db/client";
 import { inTransaction } from "@/lib/db/tx";
 import { newId } from "@/lib/id";
 import { appendAudit, prepareAudit } from "./audit";
@@ -263,10 +262,16 @@ function toRequestView(
 
 function pencairanWriteError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("disbursement_requests.facility_id")) {
+  if (
+    message.includes("disbursement_requests.facility_id") ||
+    message.includes("uq_disbursement_requests_open")
+  ) {
     return "open_request_exists";
   }
-  if (message.includes("ledger_entries.idempotency_key")) {
+  if (
+    message.includes("ledger_entries.idempotency_key") ||
+    message.includes("ledger_entries_idempotency_key_key")
+  ) {
     return "already_recorded";
   }
   if (message.includes("ck_disbursement_requests_four_eyes")) {
@@ -275,38 +280,46 @@ function pencairanWriteError(error: unknown): string {
   if (message.includes("ck_disbursement_requests_executor_owner")) {
     return "not_initiator";
   }
-  if (message.includes("repayment_schedules.facility_id")) {
+  if (
+    message.includes("repayment_schedules.facility_id") ||
+    message.includes("repayment_schedules_facility_id_key")
+  ) {
     return "schedule_exists";
   }
-  if (message.includes("FOREIGN KEY constraint failed")) {
+  if (
+    /FOREIGN KEY constraint failed/.test(message) ||
+    /violates foreign key constraint/.test(message)
+  ) {
     return "facility_not_found";
   }
   if (message === "invalid_transition") return "invalid_transition";
   return "internal_error";
 }
 
-function selectPencairanRow(
-  database: DatabaseSync,
+async function selectPencairanRow(
+  database: Db,
   facilityId: string,
-): PencairanRow | null {
-  const row = database.prepare(SELECT_PENCAIRAN_FACILITY).get(facilityId) as
-    | PencairanRow
-    | undefined;
+): Promise<PencairanRow | null> {
+  const row = (await database
+    .prepare(SELECT_PENCAIRAN_FACILITY)
+    .get(facilityId)) as PencairanRow | undefined;
   return row ?? null;
 }
 
-function selectRequestRows(
-  database: DatabaseSync,
+async function selectRequestRows(
+  database: Db,
   facilityId: string,
-): RequestRow[] {
-  return database.prepare(SELECT_REQUESTS).all(facilityId) as RequestRow[];
+): Promise<RequestRow[]> {
+  return (await database
+    .prepare(SELECT_REQUESTS)
+    .all(facilityId)) as RequestRow[];
 }
 
-function selectOpenRequest(
-  database: DatabaseSync,
+async function selectOpenRequest(
+  database: Db,
   facilityId: string,
-): OpenRequestRow | null {
-  const row = database.prepare(SELECT_OPEN_REQUEST).get(facilityId) as
+): Promise<OpenRequestRow | null> {
+  const row = (await database.prepare(SELECT_OPEN_REQUEST).get(facilityId)) as
     | OpenRequestRow
     | undefined;
   return row ?? null;
@@ -314,9 +327,13 @@ function selectOpenRequest(
 
 export async function listPencairanQueue(): Promise<PencairanQueue> {
   const actor = await requireRole("operator");
-  const database = openAuthDatabase();
-  const active = database.prepare(SELECT_QUEUE_ACTIVE).all() as QueueRow[];
-  const recent = database.prepare(SELECT_QUEUE_RECENT).all() as QueueRow[];
+  const database = db;
+  const active = (await database
+    .prepare(SELECT_QUEUE_ACTIVE)
+    .all()) as QueueRow[];
+  const recent = (await database
+    .prepare(SELECT_QUEUE_RECENT)
+    .all()) as QueueRow[];
   return {
     active: active.map((row) => toQueueItem(row, actor.id)),
     recent: recent.map((row) => toQueueItem(row, actor.id)),
@@ -327,10 +344,10 @@ export async function getPencairanDetail(
   facilityId: string,
 ): Promise<PencairanDetail | null> {
   const actor = await requireRole("operator");
-  const database = openAuthDatabase();
-  const row = selectPencairanRow(database, facilityId);
+  const database = db;
+  const row = await selectPencairanRow(database, facilityId);
   if (row === null) return null;
-  const requests = selectRequestRows(database, facilityId);
+  const requests = await selectRequestRows(database, facilityId);
   const views = requests.map((request) => toRequestView(request, actor.id));
   const latestRequest = views[0] ?? null;
   return {
@@ -368,9 +385,10 @@ export async function recordLenderDecision(input: {
   readonly reason?: string | undefined;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!isTwoFactorEnabled(actor.id)) return { ok: false, code: "mfa_required" };
-  const database = openAuthDatabase();
-  const row = selectPencairanRow(database, input.facilityId);
+  if (!(await isTwoFactorEnabled(actor.id)))
+    return { ok: false, code: "mfa_required" };
+  const database = db;
+  const row = await selectPencairanRow(database, input.facilityId);
   if (row === null) return { ok: false, code: "facility_not_found" };
   const transition = checkTransition(
     row.status as FinancingStatus,
@@ -393,19 +411,19 @@ export async function recordLenderDecision(input: {
       reason,
     });
     try {
-      inTransaction(database, () => {
-        const result = database
+      await inTransaction(database, async () => {
+        const result = await database
           .prepare(RECORD_LENDER_REJECTION)
           .run(occurredAt.toISOString(), input.facilityId);
-        if (Number(result.changes) === 0) throw new Error("invalid_transition");
-        appendAudit(database, prepared);
+        if (result.changes === 0) throw new Error("invalid_transition");
+        await appendAudit(database, prepared);
       });
     } catch (error) {
       return { ok: false, code: pencairanWriteError(error) };
     }
     return { ok: true };
   }
-  const terms = getPilotLenderTerms();
+  const terms = await getPilotLenderTerms();
   if (terms === null) return { ok: false, code: "lender_unavailable" };
   if (row.requested_amount === null || row.tenor_months === null) {
     return { ok: false, code: "facility_incomplete" };
@@ -426,8 +444,8 @@ export async function recordLenderDecision(input: {
     reason: reason === "" ? "Keputusan mitra pilot dicatat: disetujui" : reason,
   });
   try {
-    inTransaction(database, () => {
-      const result = database
+    await inTransaction(database, async () => {
+      const result = await database
         .prepare(RECORD_LENDER_APPROVAL)
         .run(
           occurredAt.toISOString(),
@@ -436,8 +454,8 @@ export async function recordLenderDecision(input: {
           terms.serviceFeeRateBp,
           input.facilityId,
         );
-      if (Number(result.changes) === 0) throw new Error("invalid_transition");
-      appendAudit(database, prepared);
+      if (result.changes === 0) throw new Error("invalid_transition");
+      await appendAudit(database, prepared);
     });
   } catch (error) {
     return { ok: false, code: pencairanWriteError(error) };
@@ -450,11 +468,12 @@ export async function recordAgreementSignature(input: {
   readonly note: string;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!isTwoFactorEnabled(actor.id)) return { ok: false, code: "mfa_required" };
+  if (!(await isTwoFactorEnabled(actor.id)))
+    return { ok: false, code: "mfa_required" };
   const note = input.note.trim();
   if (note.length < 10) return { ok: false, code: "note_required" };
-  const database = openAuthDatabase();
-  const row = selectPencairanRow(database, input.facilityId);
+  const database = db;
+  const row = await selectPencairanRow(database, input.facilityId);
   if (row === null) return { ok: false, code: "facility_not_found" };
   const transition = checkTransition(
     row.status as FinancingStatus,
@@ -474,12 +493,12 @@ export async function recordAgreementSignature(input: {
     reason: note,
   });
   try {
-    inTransaction(database, () => {
-      const result = database
+    await inTransaction(database, async () => {
+      const result = await database
         .prepare(RECORD_AGREEMENT)
         .run(occurredAt.toISOString(), input.facilityId);
-      if (Number(result.changes) === 0) throw new Error("invalid_transition");
-      appendAudit(database, prepared);
+      if (result.changes === 0) throw new Error("invalid_transition");
+      await appendAudit(database, prepared);
     });
   } catch (error) {
     return { ok: false, code: pencairanWriteError(error) };
@@ -491,12 +510,13 @@ export async function initiateDisbursement(
   facilityId: string,
 ): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!isTwoFactorEnabled(actor.id)) return { ok: false, code: "mfa_required" };
-  const database = openAuthDatabase();
-  const row = selectPencairanRow(database, facilityId);
+  if (!(await isTwoFactorEnabled(actor.id)))
+    return { ok: false, code: "mfa_required" };
+  const database = db;
+  const row = await selectPencairanRow(database, facilityId);
   if (row === null) return { ok: false, code: "facility_not_found" };
   if (row.status !== "signed") return { ok: false, code: "invalid_transition" };
-  if (selectOpenRequest(database, facilityId) !== null) {
+  if ((await selectOpenRequest(database, facilityId)) !== null) {
     return { ok: false, code: "open_request_exists" };
   }
   if (row.approved_amount === null || row.institution_id === null) {
@@ -518,8 +538,8 @@ export async function initiateDisbursement(
     reason: "Pengajuan pencairan dibuat",
   });
   try {
-    inTransaction(database, () => {
-      database
+    await inTransaction(database, async () => {
+      await database
         .prepare(INSERT_DISBURSEMENT_REQUEST)
         .run(
           requestId,
@@ -532,7 +552,7 @@ export async function initiateDisbursement(
           occurredAt.toISOString(),
           occurredAt.toISOString(),
         );
-      appendAudit(database, prepared);
+      await appendAudit(database, prepared);
     });
   } catch (error) {
     return { ok: false, code: pencairanWriteError(error) };
@@ -547,12 +567,13 @@ export async function decideDisbursement(input: {
   readonly confirmDestination: boolean;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!isTwoFactorEnabled(actor.id)) return { ok: false, code: "mfa_required" };
+  if (!(await isTwoFactorEnabled(actor.id)))
+    return { ok: false, code: "mfa_required" };
   if (input.decision === "approved" && !input.confirmDestination) {
     return { ok: false, code: "confirmation_required" };
   }
-  const database = openAuthDatabase();
-  const request = selectOpenRequest(database, input.facilityId);
+  const database = db;
+  const request = await selectOpenRequest(database, input.facilityId);
   if (request === null || request.status !== "requested") {
     return { ok: false, code: "no_open_request" };
   }
@@ -585,8 +606,8 @@ export async function decideDisbursement(input: {
         : reason,
   });
   try {
-    inTransaction(database, () => {
-      const result = database
+    await inTransaction(database, async () => {
+      const result = await database
         .prepare(DECIDE_DISBURSEMENT)
         .run(
           input.decision,
@@ -595,8 +616,8 @@ export async function decideDisbursement(input: {
           reason === "" ? null : reason,
           request.id,
         );
-      if (Number(result.changes) === 0) throw new Error("invalid_transition");
-      appendAudit(database, prepared);
+      if (result.changes === 0) throw new Error("invalid_transition");
+      await appendAudit(database, prepared);
     });
   } catch (error) {
     return { ok: false, code: pencairanWriteError(error) };
@@ -608,9 +629,10 @@ export async function withdrawDisbursement(
   facilityId: string,
 ): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!isTwoFactorEnabled(actor.id)) return { ok: false, code: "mfa_required" };
-  const database = openAuthDatabase();
-  const request = selectOpenRequest(database, facilityId);
+  if (!(await isTwoFactorEnabled(actor.id)))
+    return { ok: false, code: "mfa_required" };
+  const database = db;
+  const request = await selectOpenRequest(database, facilityId);
   if (request === null || request.status !== "requested") {
     return { ok: false, code: "no_open_request" };
   }
@@ -628,8 +650,8 @@ export async function withdrawDisbursement(
     reason: "Dibatalkan oleh pengaju",
   });
   try {
-    inTransaction(database, () => {
-      const result = database
+    await inTransaction(database, async () => {
+      const result = await database
         .prepare(WITHDRAW_DISBURSEMENT)
         .run(
           actor.id,
@@ -637,8 +659,8 @@ export async function withdrawDisbursement(
           "Dibatalkan oleh pengaju",
           request.id,
         );
-      if (Number(result.changes) === 0) throw new Error("invalid_transition");
-      appendAudit(database, prepared);
+      if (result.changes === 0) throw new Error("invalid_transition");
+      await appendAudit(database, prepared);
     });
   } catch (error) {
     return { ok: false, code: pencairanWriteError(error) };
@@ -652,14 +674,15 @@ export async function executeDisbursement(input: {
   readonly deductionRate: number;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!isTwoFactorEnabled(actor.id)) return { ok: false, code: "mfa_required" };
+  if (!(await isTwoFactorEnabled(actor.id)))
+    return { ok: false, code: "mfa_required" };
   if (!DEDUCTION_RATES.includes(input.deductionRate)) {
     return { ok: false, code: "invalid_input" };
   }
   const reference = input.transferReference.trim();
   if (reference.length < 4) return { ok: false, code: "reference_required" };
-  const database = openAuthDatabase();
-  const row = selectPencairanRow(database, input.facilityId);
+  const database = db;
+  const row = await selectPencairanRow(database, input.facilityId);
   if (row === null) return { ok: false, code: "facility_not_found" };
   if (row.status !== "signed") return { ok: false, code: "invalid_transition" };
   if (
@@ -669,7 +692,7 @@ export async function executeDisbursement(input: {
   ) {
     return { ok: false, code: "facility_incomplete" };
   }
-  const request = selectOpenRequest(database, input.facilityId);
+  const request = await selectOpenRequest(database, input.facilityId);
   if (request === null || request.status !== "approved") {
     return { ok: false, code: "no_open_request" };
   }
@@ -718,20 +741,20 @@ export async function executeDisbursement(input: {
     reason: "Jadwal cicilan dibuat dan diaktifkan",
   });
   try {
-    inTransaction(database, () => {
-      const requestResult = database
+    await inTransaction(database, async () => {
+      const requestResult = await database
         .prepare(EXECUTE_DISBURSEMENT)
         .run(actor.id, occurredAt.toISOString(), reference, request.id);
-      if (Number(requestResult.changes) === 0) {
+      if (requestResult.changes === 0) {
         throw new Error("invalid_transition");
       }
-      const facilityResult = database
+      const facilityResult = await database
         .prepare(DISBURSE_FACILITY)
         .run(occurredAt.toISOString(), input.deductionRate, input.facilityId);
-      if (Number(facilityResult.changes) === 0) {
+      if (facilityResult.changes === 0) {
         throw new Error("invalid_transition");
       }
-      createActiveSchedule(database, {
+      await createActiveSchedule(database, {
         facilityId: input.facilityId,
         principal: request.amount,
         tenorMonths,
@@ -739,13 +762,13 @@ export async function executeDisbursement(input: {
         serviceFeeRateBp: feeRateBp,
         firstDueDate,
       });
-      const activation = database
+      const activation = await database
         .prepare(ACTIVATE_FACILITY)
         .run(input.facilityId);
-      if (Number(activation.changes) === 0) {
+      if (activation.changes === 0) {
         throw new Error("invalid_transition");
       }
-      appendLedgerEntry(database, {
+      await appendLedgerEntry(database, {
         idempotencyKey: `disbursement:${request.id}`,
         facilityId: input.facilityId,
         entryType: "disbursement",
@@ -755,9 +778,9 @@ export async function executeDisbursement(input: {
         recordedBy: actor.id,
         memo: `${row.public_ref} → ${request.destination_name}`,
       });
-      appendAudit(database, statusChanged);
-      appendAudit(database, executed);
-      appendAudit(database, activated);
+      await appendAudit(database, statusChanged);
+      await appendAudit(database, executed);
+      await appendAudit(database, activated);
     });
   } catch (error) {
     return { ok: false, code: pencairanWriteError(error) };

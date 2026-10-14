@@ -26,7 +26,9 @@ function decodeBase32(input) {
 function totpCode(secret, counter) {
   const message = Buffer.alloc(8);
   message.writeBigUInt64BE(BigInt(counter));
-  const digest = createHmac("sha1", decodeBase32(secret)).update(message).digest();
+  const digest = createHmac("sha1", decodeBase32(secret))
+    .update(message)
+    .digest();
   const offset = digest[19] & 15;
   const value =
     (((digest[offset] & 127) << 24) |
@@ -78,7 +80,9 @@ if (user === undefined) {
 
 console.log(`Pengguna      : ${user.email}`);
 console.log(`2FA aktif     : ${user.twoFactorEnabled === 1 ? "ya" : "belum"}`);
-console.log(`Kode terakhir : ${user.hasHash === 1 ? "ada (anti-replay)" : "belum ada"}`);
+console.log(
+  `Kode terakhir : ${user.hasHash === 1 ? "ada (anti-replay)" : "belum ada"}`,
+);
 
 const factor = database
   .prepare(
@@ -87,7 +91,9 @@ const factor = database
   .get(user.id);
 
 if (factor === undefined) {
-  console.log("Baris twoFactor: tidak ada — pengguna belum pernah memulai pengaturan");
+  console.log(
+    "Baris twoFactor: tidak ada — pengguna belum pernah memulai pengaturan",
+  );
   database.close();
   process.exit(0);
 }
@@ -106,7 +112,9 @@ if (flag === "--reset") {
       "UPDATE user SET twoFactorEnabled = 0, totpLastCodeHash = NULL WHERE id = ?",
     )
     .run(user.id);
-  console.log("Status          : direset — silakan mulai pengaturan 2FA dari awal");
+  console.log(
+    "Status          : direset — silakan mulai pengaturan 2FA dari awal",
+  );
   database.close();
   process.exit(0);
 }
@@ -145,7 +153,9 @@ console.log(
 
 if (code === undefined) {
   console.log("");
-  console.log("Kirim kode dari aplikasi autentikatormu sebagai argumen kedua untuk");
+  console.log(
+    "Kirim kode dari aplikasi autentikatormu sebagai argumen kedua untuk",
+  );
   console.log("memeriksa apakah kode itu cocok dan di jendela waktu mana.");
   database.close();
   process.exit(0);
@@ -164,9 +174,13 @@ const matches = WINDOW_RANGE.filter(
 if (matches.length === 0) {
   console.log("");
   console.log("Hasil         : kode TIDAK cocok di jendela -2..+2 (±60 detik)");
-  console.log("Kemungkinan   : aplikasi autentikator memakai secret berbeda (salah entri),");
+  console.log(
+    "Kemungkinan   : aplikasi autentikator memakai secret berbeda (salah entri),",
+  );
   console.log("                atau kode sudah kedaluwarsa saat diketik.");
-  console.log("Saran         : reset dengan --reset lalu enroll ulang dari halaman keamanan.");
+  console.log(
+    "Saran         : reset dengan --reset lalu enroll ulang dari halaman keamanan.",
+  );
 } else {
   console.log("");
   for (const offset of matches) {

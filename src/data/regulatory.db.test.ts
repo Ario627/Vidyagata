@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { resolveActiveParameters } from "@/data/regulatory";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { getDb } from "@/lib/db/client";
 
 const directory = mkdtempSync(join(tmpdir(), "vidyagata-regulatory-"));
 process.env.VIDYAGATA_DB_FILE = join(directory, "regulatory.db");
@@ -21,12 +21,13 @@ afterAll(() => {
 });
 
 describe("regulatory parameters dari database", () => {
-  it("menyemai parameter awal lengkap dan dapat diresolusi", () => {
-    const count = openAuthDatabase()
+  it("menyemai parameter awal lengkap dan dapat diresolusi", async () => {
+    const database = await getDb();
+    const count = (await database
       .prepare("SELECT COUNT(*) AS total FROM regulatory_parameters")
-      .get() as { total: number };
+      .get()) as { total: number };
     expect(count.total).toBe(11);
-    const result = resolveActiveParameters(AT_2026);
+    const result = await resolveActiveParameters(AT_2026);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value.max_annual_margin_rate_bp).toBe(1500);
@@ -36,9 +37,9 @@ describe("regulatory parameters dari database", () => {
     expect(result.value.data_retention_years).toBe(10);
   });
 
-  it("mereproduksi nilai historis dari effectiveFrom tiap baris", () => {
-    const database = openAuthDatabase();
-    database
+  it("mereproduksi nilai historis dari effectiveFrom tiap baris", async () => {
+    const database = await getDb();
+    await database
       .prepare(INSERT_ROW)
       .run(
         "test-margin-2027",
@@ -47,15 +48,15 @@ describe("regulatory parameters dari database", () => {
         "2027-01-01T00:00:00.000Z",
         AT_2026,
       );
-    const before = resolveActiveParameters(AT_2026);
-    const after = resolveActiveParameters(AT_2027);
+    const before = await resolveActiveParameters(AT_2026);
+    const after = await resolveActiveParameters(AT_2027);
     expect(before.ok && before.value.max_annual_margin_rate_bp).toBe(1500);
     expect(after.ok && after.value.max_annual_margin_rate_bp).toBe(2000);
   });
 
-  it("mengizinkan penutupan periode dan menolak perubahan lain", () => {
-    const database = openAuthDatabase();
-    database
+  it("mengizinkan penutupan periode dan menolak perubahan lain", async () => {
+    const database = await getDb();
+    await database
       .prepare(INSERT_ROW)
       .run(
         "test-tenor-2030",
@@ -64,72 +65,79 @@ describe("regulatory parameters dari database", () => {
         "2030-01-01T00:00:00.000Z",
         AT_2026,
       );
-    expect(() =>
+    await expect(
       database
         .prepare(
           "UPDATE regulatory_parameters SET note = 'ubah' WHERE id = 'test-tenor-2030'",
         )
         .run(),
-    ).toThrow(/regulatory_parameters_immutable/);
-    expect(() =>
+    ).rejects.toThrow(/regulatory_parameters_immutable/);
+    await expect(
       database
         .prepare(
           "DELETE FROM regulatory_parameters WHERE id = 'test-tenor-2030'",
         )
         .run(),
-    ).toThrow(/regulatory_parameters_immutable/);
-    database
+    ).rejects.toThrow(/regulatory_parameters_immutable/);
+    await database
       .prepare(
         "UPDATE regulatory_parameters SET effective_to = '2031-01-01T00:00:00.000Z' WHERE id = 'test-tenor-2030'",
       )
       .run();
-    const open2030 = resolveActiveParameters("2030-06-01T00:00:00.000Z");
+    const open2030 = await resolveActiveParameters("2030-06-01T00:00:00.000Z");
     expect(open2030.ok && open2030.value.max_tenor_months).toBe(48);
-    expect(() =>
+    await expect(
       database
         .prepare(
           "UPDATE regulatory_parameters SET effective_to = NULL WHERE id = 'test-tenor-2030'",
         )
         .run(),
-    ).toThrow(/regulatory_parameters_immutable/);
+    ).rejects.toThrow(/regulatory_parameters_immutable/);
   });
 
-  it("menegakkan kunci, bentuk json, periode, dan keunikan di database", () => {
-    const database = openAuthDatabase();
-    const insert = database.prepare(INSERT_ROW);
-    expect(() =>
-      insert.run(
+  it("menegakkan kunci, bentuk json, periode, dan keunikan di database", async () => {
+    const database = await getDb();
+    const expectRejected = async (params: readonly (string | number)[]) => {
+      try {
+        await database.prepare(INSERT_ROW).run(...params);
+        return null;
+      } catch (error) {
+        return error instanceof Error ? error.message : String(error);
+      }
+    };
+    expect(
+      await expectRejected([
         "test-bad-key",
         "unknown_key",
         "1",
         "2032-01-01T00:00:00.000Z",
         AT_2026,
-      ),
-    ).toThrow(/CHECK/);
-    expect(() =>
-      insert.run(
+      ]),
+    ).toMatch(/CHECK/);
+    expect(
+      await expectRejected([
         "test-bad-json",
         "max_tenor_months",
         "{bukan",
         "2032-01-01T00:00:00.000Z",
         AT_2026,
-      ),
-    ).toThrow(/CHECK/);
-    insert.run(
+      ]),
+    ).toMatch(/CHECK|invalid input syntax|json/i);
+    await expectRejected([
       "test-unique",
       "max_service_fee_rate_bp",
       "250",
       "2032-01-01T00:00:00.000Z",
       AT_2026,
-    );
-    expect(() =>
-      insert.run(
+    ]);
+    expect(
+      await expectRejected([
         "test-unique-dupe",
         "max_service_fee_rate_bp",
         "250",
         "2032-01-01T00:00:00.000Z",
         AT_2026,
-      ),
-    ).toThrow(/UNIQUE/);
+      ]),
+    ).toMatch(/UNIQUE|unique/i);
   });
 });

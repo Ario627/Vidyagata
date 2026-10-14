@@ -27,7 +27,7 @@ export const instant = false;
 export default async function PembiayaanPage() {
   await requireUser();
   const facilities = await listMyFacilities();
-  const institutions = listInstitutionOptions();
+  const institutions = await listInstitutionOptions();
   const institutionNames = new Map(
     institutions.map((institution) => [institution.id, institution.name]),
   );

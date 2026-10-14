@@ -23,7 +23,7 @@ export default async function MasukPage({ searchParams }: PageProps<"/masuk">) {
   if (user !== null) {
     redirect((nextPath ?? (await defaultLandingPath())) as Route);
   }
-  if (hasActiveAgeBan(await headers())) {
+  if (await hasActiveAgeBan(await headers())) {
     redirect("/daftar/usia-belum-cukup" as Route);
   }
 

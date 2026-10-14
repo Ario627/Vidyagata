@@ -1,7 +1,7 @@
 import "server-only";
 import type { Route } from "next";
 import { isRole, type Role } from "@/domain/account/role";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { db } from "@/lib/db/client";
 import { inTransaction } from "@/lib/db/tx";
 import { newId } from "@/lib/id";
 import { getCurrentUser } from "@/lib/session";
@@ -48,7 +48,7 @@ function roleWriteError(error: unknown): Error {
 }
 
 export async function rolesOf(userId: string): Promise<ReadonlySet<Role>> {
-  const rows = openAuthDatabase().prepare(SELECT_ACTIVE_ROLES).all(userId) as {
+  const rows = (await db.prepare(SELECT_ACTIVE_ROLES).all(userId)) as {
     role: string;
   }[];
   const roles = new Set<Role>();
@@ -81,10 +81,10 @@ export async function grantRole(input: {
     role: input.role,
     grantedAt,
   };
-  const database = openAuthDatabase();
+  const database = db;
   try {
-    inTransaction(database, () => {
-      database
+    await inTransaction(database, async () => {
+      await database
         .prepare(INSERT_ROLE)
         .run(
           assignment.id,
@@ -94,7 +94,7 @@ export async function grantRole(input: {
           grantedAt,
           prepared.reason,
         );
-      appendAudit(database, prepared);
+      await appendAudit(database, prepared);
     });
   } catch (error) {
     throw roleWriteError(error);
@@ -118,13 +118,13 @@ export async function revokeRole(input: {
     before: { role: input.role },
     reason: input.reason,
   });
-  const database = openAuthDatabase();
-  return inTransaction(database, () => {
-    const result = database
+  const database = db;
+  return inTransaction(database, async () => {
+    const result = await database
       .prepare(REVOKE_ROLE)
       .run(occurredAt.toISOString(), input.userId, input.role);
-    if (Number(result.changes) === 0) return false;
-    appendAudit(database, prepared);
+    if (result.changes === 0) return false;
+    await appendAudit(database, prepared);
     return true;
   });
 }
@@ -144,9 +144,7 @@ export async function listMyRoleAssignments(): Promise<
 > {
   const user = await getCurrentUser();
   if (user === null) return [];
-  const rows = openAuthDatabase()
-    .prepare(SELECT_MY_ASSIGNMENTS)
-    .all(user.id) as {
+  const rows = (await db.prepare(SELECT_MY_ASSIGNMENTS).all(user.id)) as {
     role: string;
     granted_at: string;
     reason: string | null;

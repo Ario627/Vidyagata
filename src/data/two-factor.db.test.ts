@@ -42,19 +42,19 @@ afterAll(() => {
 });
 
 describe("isTwoFactorEnabled", () => {
-  it("mengembalikan false untuk akun yang belum mengaktifkan", () => {
-    expect(isTwoFactorEnabled("user-mfa-1")).toBe(false);
+  it("mengembalikan false untuk akun yang belum mengaktifkan", async () => {
+    expect(await isTwoFactorEnabled("user-mfa-1")).toBe(false);
   });
 
-  it("mengembalikan true setelah kolom diaktifkan", () => {
-    openAuthDatabase()
+  it("mengembalikan true setelah kolom diaktifkan", async () => {
+    await openAuthDatabase()
       .prepare("UPDATE user SET twoFactorEnabled = 1 WHERE id = ?")
       .run("user-mfa-1");
-    expect(isTwoFactorEnabled("user-mfa-1")).toBe(true);
+    expect(await isTwoFactorEnabled("user-mfa-1")).toBe(true);
   });
 
-  it("mengembalikan false untuk akun yang tidak ada", () => {
-    expect(isTwoFactorEnabled("user-ghost")).toBe(false);
+  it("mengembalikan false untuk akun yang tidak ada", async () => {
+    expect(await isTwoFactorEnabled("user-ghost")).toBe(false);
   });
 });
 

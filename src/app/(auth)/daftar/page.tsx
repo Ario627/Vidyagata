@@ -20,7 +20,7 @@ export default async function DaftarPage() {
   if (user !== null) {
     redirect("/dashboard");
   }
-  if (hasActiveAgeBan(await headers())) {
+  if (await hasActiveAgeBan(await headers())) {
     redirect("/daftar/usia-belum-cukup" as Route);
   }
 

@@ -88,8 +88,8 @@ export default async function AjukanPembiayaanPage() {
       />
     );
   }
-  const terms = getPilotLenderTerms();
-  const consent = activeConsentDefinition(
+  const terms = await getPilotLenderTerms();
+  const consent = await activeConsentDefinition(
     "data_processing",
     new Date().toISOString(),
   );
@@ -101,7 +101,7 @@ export default async function AjukanPembiayaanPage() {
       />
     );
   }
-  const institutions = listInstitutionOptions();
+  const institutions = await listInstitutionOptions();
   const draft = await getMyDraft();
   const consentGranted = await hasActiveConsent("data_processing");
 

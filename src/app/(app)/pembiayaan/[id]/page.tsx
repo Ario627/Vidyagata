@@ -57,7 +57,7 @@ export default async function FacilityDetailPage({
   if (detail === null) notFound();
   const { facility, transitions } = detail;
   const meta = STATUS_META[facility.status];
-  const institutions = listInstitutionOptions();
+  const institutions = await listInstitutionOptions();
   const institutionName =
     facility.institutionId === null
       ? null

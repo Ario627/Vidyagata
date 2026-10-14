@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { type Rupiah, rupiah } from "@/domain/money/money";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { db } from "@/lib/db/client";
 
 export type LenderTerms = {
   readonly lenderId: string;
@@ -20,7 +20,7 @@ const RiskAppetite = z.object({
 
 type LenderRow = {
   id: string;
-  risk_appetite_json: string;
+  risk_appetite_json: string | Record<string, unknown>;
 };
 
 const SELECT_PILOT = `SELECT id, risk_appetite_json FROM lenders
@@ -28,19 +28,18 @@ WHERE status IN ('pilot', 'active')
 ORDER BY created_at, id
 LIMIT 1`;
 
-function parseAppetite(raw: string): z.infer<typeof RiskAppetite> | null {
+function parseAppetite(raw: unknown): z.infer<typeof RiskAppetite> | null {
   try {
-    const parsed = RiskAppetite.safeParse(JSON.parse(raw));
+    const decoded = typeof raw === "string" ? JSON.parse(raw) : raw;
+    const parsed = RiskAppetite.safeParse(decoded);
     return parsed.success ? parsed.data : null;
   } catch {
     return null;
   }
 }
 
-export function getPilotLenderTerms(): LenderTerms | null {
-  const row = openAuthDatabase().prepare(SELECT_PILOT).get() as
-    | LenderRow
-    | undefined;
+export async function getPilotLenderTerms(): Promise<LenderTerms | null> {
+  const row = (await db.prepare(SELECT_PILOT).get()) as LenderRow | undefined;
   if (row === undefined) return null;
   const appetite = parseAppetite(row.risk_appetite_json);
   if (appetite === null) return null;

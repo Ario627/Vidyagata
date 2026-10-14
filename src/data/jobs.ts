@@ -1,6 +1,6 @@
 import "server-only";
 import { cacheLife, cacheTag } from "next/cache";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { db } from "@/lib/db/client";
 
 export type JobType = "part_time" | "project_based" | "internship";
 
@@ -113,9 +113,9 @@ function skillsByPosting(rows: readonly SkillRow[]): Map<string, string[]> {
 export async function selectJobCatalog(): Promise<
   readonly JobPostingSummary[]
 > {
-  const database = openAuthDatabase();
-  const rows = database.prepare(SELECT_CATALOG).all() as JobRow[];
-  const skillRows = database.prepare(SELECT_SKILLS).all() as SkillRow[];
+  const database = db;
+  const rows = (await database.prepare(SELECT_CATALOG).all()) as JobRow[];
+  const skillRows = (await database.prepare(SELECT_SKILLS).all()) as SkillRow[];
   const grouped = skillsByPosting(skillRows);
   return rows.map((row) => toSummary(row, grouped.get(row.id) ?? []));
 }
@@ -123,14 +123,14 @@ export async function selectJobCatalog(): Promise<
 export async function selectJobPostingDetail(
   jobId: string,
 ): Promise<JobPostingDetail | null> {
-  const database = openAuthDatabase();
-  const row = database.prepare(SELECT_DETAIL).get(jobId) as
+  const database = db;
+  const row = (await database.prepare(SELECT_DETAIL).get(jobId)) as
     | JobDetailRow
     | undefined;
   if (row === undefined) return null;
-  const skillRows = database
+  const skillRows = (await database
     .prepare(SELECT_SKILLS_FOR_ONE)
-    .all(jobId) as SkillRow[];
+    .all(jobId)) as SkillRow[];
   return {
     ...toSummary(
       row,

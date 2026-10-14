@@ -1,6 +1,6 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { db } from "@/lib/db/client";
 
 const HASH_CONTEXT = "vidyagata:mfa-totp:v1";
 const DEV_FALLBACK_KEY = "vidyagata-dev-only-mfa-guard";
@@ -20,10 +20,13 @@ export function totpCodeFingerprint(userId: string, code: string): string {
     .digest("hex");
 }
 
-export function wasTotpCodeUsed(userId: string, code: string): boolean {
-  const row = openAuthDatabase()
-    .prepare("SELECT totpLastCodeHash FROM user WHERE id = ?")
-    .get(userId) as { totpLastCodeHash: string | null } | undefined;
+export async function wasTotpCodeUsed(
+  userId: string,
+  code: string,
+): Promise<boolean> {
+  const row = (await db
+    .prepare('SELECT "totpLastCodeHash" FROM "user" WHERE "id" = ?')
+    .get(userId)) as { totpLastCodeHash: string | null } | undefined;
   const stored = row?.totpLastCodeHash;
   if (stored === undefined || stored === null) return false;
   const candidate = Buffer.from(totpCodeFingerprint(userId, code), "hex");
@@ -31,8 +34,11 @@ export function wasTotpCodeUsed(userId: string, code: string): boolean {
   return candidate.length === known.length && timingSafeEqual(candidate, known);
 }
 
-export function markTotpCodeUsed(userId: string, code: string): void {
-  openAuthDatabase()
-    .prepare("UPDATE user SET totpLastCodeHash = ? WHERE id = ?")
+export async function markTotpCodeUsed(
+  userId: string,
+  code: string,
+): Promise<void> {
+  await db
+    .prepare('UPDATE "user" SET "totpLastCodeHash" = ? WHERE "id" = ?')
     .run(totpCodeFingerprint(userId, code), userId);
 }

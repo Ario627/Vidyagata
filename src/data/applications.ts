@@ -1,6 +1,5 @@
 import "server-only";
-import type { DatabaseSync } from "node:sqlite";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { type Db, db } from "@/lib/db/client";
 import { inTransaction } from "@/lib/db/tx";
 import { newId } from "@/lib/id";
 import { getCurrentUser } from "@/lib/session";
@@ -90,11 +89,11 @@ function isApplicationStatus(value: string): value is ApplicationStatus {
   return (APPLICATION_STATUSES as readonly string[]).includes(value);
 }
 
-function selectMyStudentId(
-  database: DatabaseSync,
+async function selectMyStudentId(
+  database: Db,
   userId: string,
-): string | null {
-  const row = database.prepare(SELECT_MY_STUDENT_ID).get(userId) as
+): Promise<string | null> {
+  const row = (await database.prepare(SELECT_MY_STUDENT_ID).get(userId)) as
     | StudentIdRow
     | undefined;
   return row?.id ?? null;
@@ -108,7 +107,10 @@ function applicationWriteError(error: unknown): string {
   ) {
     return "already_applied";
   }
-  if (message.includes("FOREIGN KEY constraint failed")) {
+  if (
+    /FOREIGN KEY constraint failed/.test(message) ||
+    /violates foreign key constraint/.test(message)
+  ) {
     return "posting_not_found";
   }
   if (message === "invalid_transition") return "invalid_transition";
@@ -121,20 +123,20 @@ export async function applyToJob(input: {
 }): Promise<ApplicationResult> {
   const user = await getCurrentUser();
   if (user === null) return { ok: false, code: "unauthenticated" };
-  const database = openAuthDatabase();
-  const studentId = selectMyStudentId(database, user.id);
+  const database = db;
+  const studentId = await selectMyStudentId(database, user.id);
   if (studentId === null) {
     return { ok: false, code: "student_profile_required" };
   }
-  const posting = database.prepare(SELECT_POSTING).get(input.postingId) as
-    | PostingRow
-    | undefined;
+  const posting = (await database
+    .prepare(SELECT_POSTING)
+    .get(input.postingId)) as PostingRow | undefined;
   if (posting === undefined) return { ok: false, code: "posting_not_found" };
   if (posting.status !== "active")
     return { ok: false, code: "posting_not_open" };
-  const existing = database
+  const existing = (await database
     .prepare(SELECT_ACTIVE_APPLICATION)
-    .get(studentId, input.postingId) as ApplicationRefRow | undefined;
+    .get(studentId, input.postingId)) as ApplicationRefRow | undefined;
   if (existing !== undefined) return { ok: false, code: "already_applied" };
   const note = input.note?.trim() ?? "";
   const occurredAt = new Date();
@@ -148,8 +150,8 @@ export async function applyToJob(input: {
     after: { posting_id: input.postingId, status: "submitted" },
   });
   try {
-    inTransaction(database, () => {
-      database
+    await inTransaction(database, async () => {
+      await database
         .prepare(INSERT_APPLICATION)
         .run(
           applicationId,
@@ -160,7 +162,7 @@ export async function applyToJob(input: {
           occurredAt.toISOString(),
           occurredAt.toISOString(),
         );
-      appendAudit(database, prepared);
+      await appendAudit(database, prepared);
     });
   } catch (error) {
     return { ok: false, code: applicationWriteError(error) };
@@ -173,14 +175,14 @@ export async function withdrawApplication(
 ): Promise<ApplicationResult> {
   const user = await getCurrentUser();
   if (user === null) return { ok: false, code: "unauthenticated" };
-  const database = openAuthDatabase();
-  const studentId = selectMyStudentId(database, user.id);
+  const database = db;
+  const studentId = await selectMyStudentId(database, user.id);
   if (studentId === null) {
     return { ok: false, code: "student_profile_required" };
   }
-  const application = database
+  const application = (await database
     .prepare(SELECT_OWN_APPLICATION)
-    .get(applicationId, studentId) as ApplicationRefRow | undefined;
+    .get(applicationId, studentId)) as ApplicationRefRow | undefined;
   if (application === undefined) return { ok: false, code: "not_found" };
   if (
     application.status !== "submitted" &&
@@ -199,12 +201,12 @@ export async function withdrawApplication(
     after: { status: "withdrawn" },
   });
   try {
-    inTransaction(database, () => {
-      const result = database
+    await inTransaction(database, async () => {
+      const result = await database
         .prepare(WITHDRAW_APPLICATION)
         .run(occurredAt.toISOString(), applicationId);
-      if (Number(result.changes) === 0) throw new Error("invalid_transition");
-      appendAudit(database, prepared);
+      if (result.changes === 0) throw new Error("invalid_transition");
+      await appendAudit(database, prepared);
     });
   } catch (error) {
     return { ok: false, code: applicationWriteError(error) };
@@ -217,12 +219,12 @@ export async function getMyApplicationForPosting(
 ): Promise<ApplicationRef | null> {
   const user = await getCurrentUser();
   if (user === null) return null;
-  const database = openAuthDatabase();
-  const studentId = selectMyStudentId(database, user.id);
+  const database = db;
+  const studentId = await selectMyStudentId(database, user.id);
   if (studentId === null) return null;
-  const row = database
+  const row = (await database
     .prepare(SELECT_ACTIVE_APPLICATION)
-    .get(studentId, postingId) as ApplicationRefRow | undefined;
+    .get(studentId, postingId)) as ApplicationRefRow | undefined;
   if (row === undefined || !isApplicationStatus(row.status)) return null;
   return { id: row.id, status: row.status };
 }
@@ -230,12 +232,12 @@ export async function getMyApplicationForPosting(
 export async function listMyApplications(): Promise<readonly MyApplication[]> {
   const user = await getCurrentUser();
   if (user === null) return [];
-  const database = openAuthDatabase();
-  const studentId = selectMyStudentId(database, user.id);
+  const database = db;
+  const studentId = await selectMyStudentId(database, user.id);
   if (studentId === null) return [];
-  const rows = database
+  const rows = (await database
     .prepare(SELECT_MY_APPLICATIONS)
-    .all(studentId) as MyApplicationRow[];
+    .all(studentId)) as MyApplicationRow[];
   return rows.flatMap((row) =>
     isApplicationStatus(row.status)
       ? [

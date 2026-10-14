@@ -1,5 +1,4 @@
 import "server-only";
-import type { DatabaseSync } from "node:sqlite";
 import { jakartaPlainDateOf } from "@/domain/account/age";
 import {
   buildRepaymentSchedule,
@@ -13,7 +12,7 @@ import {
   type PlainDate,
   parsePlainDate,
 } from "@/domain/time/plain-date";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { type Db, db } from "@/lib/db/client";
 import { newId } from "@/lib/id";
 import { getCurrentUser } from "@/lib/session";
 
@@ -108,10 +107,10 @@ export function firstDueDateAfter(today: PlainDate): PlainDate | null {
   return next.ok ? next.value : null;
 }
 
-export function createActiveSchedule(
-  database: DatabaseSync,
+export async function createActiveSchedule(
+  database: Db,
   seed: ScheduleSeed,
-): string {
+): Promise<string> {
   const built = buildRepaymentSchedule({
     principal: rupiah(seed.principal),
     tenorMonths: seed.tenorMonths,
@@ -122,7 +121,7 @@ export function createActiveSchedule(
   if (!built.ok) throw new Error(`schedule_invalid:${built.error}`);
   const scheduleId = newId();
   const now = new Date().toISOString();
-  database
+  await database
     .prepare(INSERT_SCHEDULE)
     .run(
       scheduleId,
@@ -133,21 +132,22 @@ export function createActiveSchedule(
       now,
       now,
     );
-  const insert = database.prepare(INSERT_INSTALLMENT);
   for (const row of built.value.rows) {
-    insert.run(
-      newId(),
-      scheduleId,
-      seed.facilityId,
-      row.index,
-      row.dueDate,
-      row.principal,
-      row.margin,
-      row.serviceFee,
-      row.total,
-      now,
-      now,
-    );
+    await database
+      .prepare(INSERT_INSTALLMENT)
+      .run(
+        newId(),
+        scheduleId,
+        seed.facilityId,
+        row.index,
+        row.dueDate,
+        row.principal,
+        row.margin,
+        row.serviceFee,
+        row.total,
+        now,
+        now,
+      );
   }
   return scheduleId;
 }
@@ -216,13 +216,13 @@ function toOverview(
 export async function getMyTagihan(): Promise<TagihanOverview | null> {
   const user = await getCurrentUser();
   if (user === null) return null;
-  const database = openAuthDatabase();
-  const schedule = database.prepare(SELECT_MY_SCHEDULE).get(user.id) as
+  const database = db;
+  const schedule = (await database.prepare(SELECT_MY_SCHEDULE).get(user.id)) as
     | MyScheduleRow
     | undefined;
   if (schedule === undefined) return null;
-  const rows = database
+  const rows = (await database
     .prepare(SELECT_INSTALLMENTS)
-    .all(schedule.schedule_id) as InstallmentRow[];
+    .all(schedule.schedule_id)) as InstallmentRow[];
   return toOverview(schedule, rows, jakartaPlainDateOf(new Date()));
 }

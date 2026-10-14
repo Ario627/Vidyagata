@@ -22,7 +22,10 @@ export default async function OperatorSecurityPage() {
         description="Semua akun operator wajib memakai verifikasi dua langkah. Antrian pengajuan hanya terbuka setelah verifikasi aktif."
       />
       <ClockSkewNotice serverNow={new Date().toISOString()} />
-      <TwoFactorSetup enabled={isTwoFactorEnabled(actor.id)} scope="operator" />
+      <TwoFactorSetup
+        enabled={await isTwoFactorEnabled(actor.id)}
+        scope="operator"
+      />
     </main>
   );
 }

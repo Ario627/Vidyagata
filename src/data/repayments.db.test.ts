@@ -5,7 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { buildRepaymentSchedule } from "@/domain/financing/schedule";
 import { rupiah } from "@/domain/money/money";
 import { type PlainDate, parsePlainDate } from "@/domain/time/plain-date";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { type Db, getDb } from "@/lib/db/client";
 import { createActiveSchedule, getMyTagihan } from "./repayments";
 
 const session = vi.hoisted(() => ({ userId: "rep-student-user-1" }));
@@ -24,8 +24,10 @@ const TENOR = 12;
 const MARGIN_BP = 1200;
 const FEE_BP = 200;
 
+let database: Db;
+
 function insertUser(id: string, name: string) {
-  openAuthDatabase()
+  return database
     .prepare(
       "INSERT INTO user (id, name, email, emailVerified, createdAt, updatedAt) VALUES (?, ?, ?, 1, ?, ?)",
     )
@@ -33,22 +35,22 @@ function insertUser(id: string, name: string) {
 }
 
 function insertStudent(id: string, userId: string) {
-  openAuthDatabase()
+  return database
     .prepare(
       "INSERT INTO students (id, user_id, full_name, date_of_birth, academic_status, current_semester, gpa_hundredths, province, city, created_at, updated_at) VALUES (?, ?, ?, '2005-01-01', 'undergraduate', 5, 350, 'Jawa Barat', 'Depok', ?, ?)",
     )
     .run(id, userId, `Mahasiswa ${id}`, STAMP, STAMP);
 }
 
-function pilotLenderId(): string {
-  const row = openAuthDatabase()
+async function pilotLenderId(): Promise<string> {
+  const row = (await database
     .prepare("SELECT id FROM lenders ORDER BY created_at, id LIMIT 1")
-    .get() as { id: string };
+    .get()) as { id: string };
   return row.id;
 }
 
-function insertActiveFacility() {
-  openAuthDatabase()
+async function insertActiveFacility() {
+  await database
     .prepare(
       `INSERT INTO financing_facilities (
         id, public_ref, student_id, lender_id, institution_id, status, scheme_type,
@@ -61,7 +63,7 @@ function insertActiveFacility() {
       )`,
     )
     .run(
-      pilotLenderId(),
+      await pilotLenderId(),
       PRINCIPAL,
       PRINCIPAL,
       TENOR,
@@ -82,18 +84,18 @@ function firstDuePlainDate(): PlainDate {
   return parsed.value;
 }
 
-beforeAll(() => {
-  const database = openAuthDatabase();
-  database
+beforeAll(async () => {
+  database = await getDb();
+  await database
     .prepare(
       `INSERT INTO institutions (id, name, slug, type, city, province, verification_method, partnership_status, created_at, updated_at)
        VALUES ('inst-rep-1', 'Kampus Repayment', 'kampus-repayment', 'university', 'Depok', 'Jawa Barat', 'manual_document', 'active', ?, ?)`,
     )
     .run(STAMP, STAMP);
-  insertUser("rep-student-user-1", "Mahasiswa Repayment");
-  insertStudent("rep-student-1", "rep-student-user-1");
-  insertActiveFacility();
-  createActiveSchedule(openAuthDatabase(), {
+  await insertUser("rep-student-user-1", "Mahasiswa Repayment");
+  await insertStudent("rep-student-1", "rep-student-user-1");
+  await insertActiveFacility();
+  await createActiveSchedule(database, {
     facilityId: "repfac-000001",
     principal: PRINCIPAL,
     tenorMonths: TENOR,
@@ -108,7 +110,7 @@ afterAll(() => {
 });
 
 describe("createActiveSchedule", () => {
-  it("baris jadwal identik dengan hasil engine murni", () => {
+  it("baris jadwal identik dengan hasil engine murni", async () => {
     const built = buildRepaymentSchedule({
       principal: rupiah(PRINCIPAL),
       tenorMonths: TENOR,
@@ -118,11 +120,15 @@ describe("createActiveSchedule", () => {
     });
     expect(built.ok).toBe(true);
     if (!built.ok) return;
-    const rows = openAuthDatabase()
+    const rows = (await database
       .prepare(
         "SELECT period_no, due_date, total_amount FROM installments ORDER BY period_no",
       )
-      .all() as { period_no: number; due_date: string; total_amount: number }[];
+      .all()) as {
+      period_no: number;
+      due_date: string;
+      total_amount: number;
+    }[];
     expect(rows).toHaveLength(TENOR);
     rows.forEach((row, index) => {
       const expected = built.value.rows[index];
@@ -133,9 +139,9 @@ describe("createActiveSchedule", () => {
     });
   });
 
-  it("menolak jadwal kedua untuk fasilitas yang sama", () => {
-    expect(() =>
-      createActiveSchedule(openAuthDatabase(), {
+  it("menolak jadwal kedua untuk fasilitas yang sama", async () => {
+    await expect(
+      createActiveSchedule(database, {
         facilityId: "repfac-000001",
         principal: PRINCIPAL,
         tenorMonths: TENOR,
@@ -143,18 +149,18 @@ describe("createActiveSchedule", () => {
         serviceFeeRateBp: FEE_BP,
         firstDueDate: firstDuePlainDate(),
       }),
-    ).toThrow(/UNIQUE/i);
+    ).rejects.toThrow(/UNIQUE|unique/i);
   });
 
-  it("menolak parameter yang tidak valid lewat engine", () => {
-    openAuthDatabase()
+  it("menolak parameter yang tidak valid lewat engine", async () => {
+    await database
       .prepare(
         `INSERT INTO financing_facilities (id, public_ref, student_id, status, scheme_type, academic_purpose, requested_amount, created_at, updated_at)
          VALUES ('repfac-000002', 'VG-FIN-2026-000902', 'rep-student-1', 'draft', 'vidyafund', 'tuition', 100, ?, ?)`,
       )
       .run(STAMP, STAMP);
-    expect(() =>
-      createActiveSchedule(openAuthDatabase(), {
+    await expect(
+      createActiveSchedule(database, {
         facilityId: "repfac-000002",
         principal: 0,
         tenorMonths: TENOR,
@@ -162,7 +168,7 @@ describe("createActiveSchedule", () => {
         serviceFeeRateBp: FEE_BP,
         firstDueDate: firstDuePlainDate(),
       }),
-    ).toThrow(/schedule_invalid:principal_not_positive/);
+    ).rejects.toThrow(/schedule_invalid:principal_not_positive/);
   });
 });
 
@@ -184,7 +190,7 @@ describe("getMyTagihan", () => {
   });
 
   it("menandai cicilan lewat jatuh tempo secara turunan", async () => {
-    openAuthDatabase()
+    await database
       .prepare(
         "UPDATE installments SET due_date = '2020-01-01' WHERE period_no = 1",
       )
@@ -195,19 +201,18 @@ describe("getMyTagihan", () => {
   });
 
   it("mengecualikan cicilan lunas dan dibebaskan dari sisa tagihan", async () => {
-    const database = openAuthDatabase();
     const before = await getMyTagihan();
     const first = before?.installments[0];
     const second = before?.installments[1];
     if (before === null || first === undefined || second === undefined) {
       throw new Error("data uji tidak lengkap");
     }
-    database
+    await database
       .prepare(
         "UPDATE installments SET status = 'paid', paid_at = ? WHERE period_no = 1",
       )
       .run(STAMP);
-    database
+    await database
       .prepare("UPDATE installments SET status = 'waived' WHERE period_no = 2")
       .run();
     const tagihan = await getMyTagihan();

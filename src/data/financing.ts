@@ -1,5 +1,4 @@
 import "server-only";
-import type { DatabaseSync } from "node:sqlite";
 import { jakartaPlainDateOf } from "@/domain/account/age";
 import {
   buildPublicRef,
@@ -11,7 +10,7 @@ import {
   isFinancingStatus,
 } from "@/domain/financing/state-machine";
 import { type Rupiah, rupiah } from "@/domain/money/money";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { type Db, db } from "@/lib/db/client";
 import { inTransaction } from "@/lib/db/tx";
 import { newId } from "@/lib/id";
 import { getCurrentUser } from "@/lib/session";
@@ -160,22 +159,22 @@ function toFacility(row: FacilityRow): FinancingFacility {
   };
 }
 
-function selectFacility(
-  database: DatabaseSync,
+async function selectFacility(
+  database: Db,
   facilityId: string,
   userId: string,
-): FinancingFacility | null {
-  const row = database.prepare(SELECT_DETAIL).get(facilityId, userId) as
+): Promise<FinancingFacility | null> {
+  const row = (await database.prepare(SELECT_DETAIL).get(facilityId, userId)) as
     | FacilityRow
     | undefined;
   return row === undefined ? null : toFacility(row);
 }
 
-function selectLatestDraft(
-  database: DatabaseSync,
+async function selectLatestDraft(
+  database: Db,
   userId: string,
-): FinancingFacility | null {
-  const row = database.prepare(SELECT_LATEST_DRAFT).get(userId) as
+): Promise<FinancingFacility | null> {
+  const row = (await database.prepare(SELECT_LATEST_DRAFT).get(userId)) as
     | FacilityRow
     | undefined;
   return row === undefined ? null : toFacility(row);
@@ -204,10 +203,16 @@ function transitionStatusOf(raw: string | null): FinancingStatus | null {
 
 function financingWriteError(error: unknown): Error {
   const message = error instanceof Error ? error.message : String(error);
-  if (message.includes("financing_facilities.student_id")) {
+  if (
+    message.includes("financing_facilities.student_id") ||
+    message.includes("uq_financing_facilities_student_active")
+  ) {
     return new Error("active_facility_exists");
   }
-  if (message.includes("FOREIGN KEY constraint failed")) {
+  if (
+    /FOREIGN KEY constraint failed/.test(message) ||
+    /violates foreign key constraint/.test(message)
+  ) {
     return new Error("institution_not_found");
   }
   return error instanceof Error ? error : new Error(message);
@@ -218,7 +223,7 @@ export async function getMyFacility(
 ): Promise<FinancingFacility | null> {
   const user = await getCurrentUser();
   if (user === null) return null;
-  return selectFacility(openAuthDatabase(), facilityId, user.id);
+  return selectFacility(db, facilityId, user.id);
 }
 
 export async function listMyFacilities(): Promise<
@@ -226,16 +231,14 @@ export async function listMyFacilities(): Promise<
 > {
   const user = await getCurrentUser();
   if (user === null) return [];
-  const rows = openAuthDatabase()
-    .prepare(SELECT_LIST)
-    .all(user.id) as FacilityRow[];
+  const rows = (await db.prepare(SELECT_LIST).all(user.id)) as FacilityRow[];
   return rows.map(toFacility);
 }
 
 export async function getMyDraft(): Promise<FinancingFacility | null> {
   const user = await getCurrentUser();
   if (user === null) return null;
-  return selectLatestDraft(openAuthDatabase(), user.id);
+  return selectLatestDraft(db, user.id);
 }
 
 export async function getMyFacilityTimeline(
@@ -243,12 +246,12 @@ export async function getMyFacilityTimeline(
 ): Promise<FacilityTimelineDetail | null> {
   const user = await getCurrentUser();
   if (user === null) return null;
-  const database = openAuthDatabase();
-  const facility = selectFacility(database, facilityId, user.id);
+  const database = db;
+  const facility = await selectFacility(database, facilityId, user.id);
   if (facility === null) return null;
-  const rows = database
+  const rows = (await database
     .prepare(SELECT_TRANSITIONS)
-    .all(facilityId) as TransitionRow[];
+    .all(facilityId)) as TransitionRow[];
   const transitions: FacilityTransition[] = [];
   for (const row of rows) {
     const status = transitionStatusOf(row.after_json);
@@ -266,20 +269,20 @@ export async function saveMyDraft(
   if (user === null) throw new Error("unauthenticated");
   const student = await getMyStudentProfile();
   if (student === null) throw new Error("student_profile_required");
-  const database = openAuthDatabase();
-  const existing = selectLatestDraft(database, user.id);
+  const database = db;
+  const existing = await selectLatestDraft(database, user.id);
   if (existing === null) {
     const occurredAt = new Date();
     const stamp = occurredAt.toISOString();
     const year = jakartaYearOf(occurredAt);
     const facilityId = newId(occurredAt.getTime());
     try {
-      inTransaction(database, () => {
-        const sequence = nextSequenceValue(database, {
+      await inTransaction(database, async () => {
+        const sequence = await nextSequenceValue(database, {
           scope: FINANCING_REF_SCOPE,
           period: String(year),
         });
-        database
+        await database
           .prepare(INSERT_DRAFT)
           .run(
             facilityId,
@@ -295,13 +298,13 @@ export async function saveMyDraft(
     } catch (error) {
       throw financingWriteError(error);
     }
-    const created = selectFacility(database, facilityId, user.id);
+    const created = await selectFacility(database, facilityId, user.id);
     if (created === null) throw new Error("facility_not_found");
     return created;
   }
   try {
-    inTransaction(database, () => {
-      const result = database
+    await inTransaction(database, async () => {
+      const result = await database
         .prepare(UPDATE_DRAFT)
         .run(
           input.institutionId ?? null,
@@ -309,14 +312,14 @@ export async function saveMyDraft(
           input.academicPurpose ?? null,
           existing.id,
         );
-      if (Number(result.changes) === 0) {
+      if (result.changes === 0) {
         throw new Error("invalid_transition");
       }
     });
   } catch (error) {
     throw financingWriteError(error);
   }
-  const updated = selectFacility(database, existing.id, user.id);
+  const updated = await selectFacility(database, existing.id, user.id);
   if (updated === null) throw new Error("facility_not_found");
   return updated;
 }
@@ -326,8 +329,8 @@ export async function submitMyFacility(
 ): Promise<FinancingFacility> {
   const user = await getCurrentUser();
   if (user === null) throw new Error("unauthenticated");
-  const database = openAuthDatabase();
-  const current = selectFacility(database, facilityId, user.id);
+  const database = db;
+  const current = await selectFacility(database, facilityId, user.id);
   if (current === null) throw new Error("facility_not_found");
   const transition = checkTransition(current.status, "submitted", "user");
   if (!transition.ok) throw new Error("invalid_transition");
@@ -352,19 +355,19 @@ export async function submitMyFacility(
     after: { status: "submitted" },
   });
   try {
-    inTransaction(database, () => {
-      const result = database
+    await inTransaction(database, async () => {
+      const result = await database
         .prepare(SUBMIT_FACILITY)
         .run(occurredAt.toISOString(), facilityId);
-      if (Number(result.changes) === 0) {
+      if (result.changes === 0) {
         throw new Error("invalid_transition");
       }
-      appendAudit(database, prepared);
+      await appendAudit(database, prepared);
     });
   } catch (error) {
     throw financingWriteError(error);
   }
-  const submitted = selectFacility(database, facilityId, user.id);
+  const submitted = await selectFacility(database, facilityId, user.id);
   if (submitted === null) throw new Error("facility_not_found");
   return submitted;
 }
@@ -374,8 +377,8 @@ export async function cancelMyFacility(
 ): Promise<FinancingFacility> {
   const user = await getCurrentUser();
   if (user === null) throw new Error("unauthenticated");
-  const database = openAuthDatabase();
-  const current = selectFacility(database, facilityId, user.id);
+  const database = db;
+  const current = await selectFacility(database, facilityId, user.id);
   if (current === null) throw new Error("facility_not_found");
   const transition = checkTransition(current.status, "cancelled", "user");
   if (!transition.ok) throw new Error("invalid_transition");
@@ -390,19 +393,19 @@ export async function cancelMyFacility(
     after: { status: "cancelled" },
   });
   try {
-    inTransaction(database, () => {
-      const result = database
+    await inTransaction(database, async () => {
+      const result = await database
         .prepare(CANCEL_FACILITY)
         .run(occurredAt.toISOString(), facilityId, current.status);
-      if (Number(result.changes) === 0) {
+      if (result.changes === 0) {
         throw new Error("invalid_transition");
       }
-      appendAudit(database, prepared);
+      await appendAudit(database, prepared);
     });
   } catch (error) {
     throw financingWriteError(error);
   }
-  const cancelled = selectFacility(database, facilityId, user.id);
+  const cancelled = await selectFacility(database, facilityId, user.id);
   if (cancelled === null) throw new Error("facility_not_found");
   return cancelled;
 }

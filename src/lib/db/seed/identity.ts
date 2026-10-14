@@ -1,4 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { Db } from "@/lib/db/client";
 import { newId } from "@/lib/id";
 
 type InstitutionSeed = {
@@ -100,35 +100,40 @@ const BACKFILL_LENDER_APPETITE = `UPDATE lenders
 SET risk_appetite_json = ?
 WHERE name = ? AND json_extract(risk_appetite_json, '$.margin_rate_bp') IS NULL`;
 
-export function applyIdentitySeeds(database: DatabaseSync): void {
+export async function applyIdentitySeeds(database: Db): Promise<void> {
   const createdAt = new Date().toISOString();
-  const insertInstitution = database.prepare(INSERT_INSTITUTION);
   for (const seed of INSTITUTION_SEEDS) {
-    insertInstitution.run(
-      newId(),
-      seed.name,
-      seed.slug,
-      seed.type,
-      seed.city,
-      seed.province,
-      createdAt,
-      createdAt,
-    );
+    await database
+      .prepare(INSERT_INSTITUTION)
+      .run(
+        newId(),
+        seed.name,
+        seed.slug,
+        seed.type,
+        seed.city,
+        seed.province,
+        createdAt,
+        createdAt,
+      );
   }
-  const insertLender = database.prepare(INSERT_LENDER);
   for (const seed of LENDER_SEEDS) {
-    insertLender.run(
-      newId(),
-      seed.name,
-      seed.licenseType,
-      seed.licenseNumber,
-      JSON.stringify(seed.riskAppetite),
-      createdAt,
-      createdAt,
-    );
+    await database
+      .prepare(INSERT_LENDER)
+      .run(
+        newId(),
+        seed.name,
+        seed.licenseType,
+        seed.licenseNumber,
+        JSON.stringify(seed.riskAppetite),
+        createdAt,
+        createdAt,
+      );
   }
-  const backfillLender = database.prepare(BACKFILL_LENDER_APPETITE);
-  for (const seed of LENDER_SEEDS) {
-    backfillLender.run(JSON.stringify(seed.riskAppetite), seed.name);
+  if ((await database.dialect()) === "sqlite") {
+    for (const seed of LENDER_SEEDS) {
+      await database
+        .prepare(BACKFILL_LENDER_APPETITE)
+        .run(JSON.stringify(seed.riskAppetite), seed.name);
+    }
   }
 }

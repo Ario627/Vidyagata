@@ -1,17 +1,9 @@
 import "server-only";
-import type { DatabaseSync } from "node:sqlite";
+import type { Db } from "./client";
 
-export function inTransaction<T>(
-  database: DatabaseSync,
-  operation: () => T,
-): T {
-  database.exec("BEGIN IMMEDIATE");
-  try {
-    const result = operation();
-    database.exec("COMMIT");
-    return result;
-  } catch (error) {
-    database.exec("ROLLBACK");
-    throw error;
-  }
+export async function inTransaction<T>(
+  database: Db,
+  operation: () => Promise<T>,
+): Promise<T> {
+  return database.transaction(operation);
 }

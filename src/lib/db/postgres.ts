@@ -2,7 +2,7 @@ import "server-only";
 import postgres from "postgres";
 
 const CONNECT_TIMEOUT_SECONDS = 10;
-const MAX_CONNECTIONS = 5;
+const MAX_CONNECTIONS = 3;
 const IDLE_TIMEOUT_SECONDS = 20;
 
 export type PostgresClient = ReturnType<typeof postgres>;
@@ -27,25 +27,21 @@ export function getPostgresClient(): PostgresClient | null {
         url.includes("localhost") || url.includes("127.0.0.1")
           ? false
           : "require",
+      types: {
+        bigint: {
+          to: 20,
+          from: [20],
+          serialize: (value: bigint | number) => String(value),
+          parse: (value: string) => Number(value),
+        },
+        date: {
+          to: 1082,
+          from: [1082],
+          serialize: (value: string) => value,
+          parse: (value: string) => value,
+        },
+      },
     });
   }
   return client;
-}
-
-export async function pingPostgres(): Promise<boolean> {
-  const sql = getPostgresClient();
-  if (sql === null) return false;
-  try {
-    await sql`SELECT 1`;
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export async function closePostgres(): Promise<void> {
-  if (client === null) return;
-  const current = client;
-  client = null;
-  await current.end({ timeout: 5 });
 }

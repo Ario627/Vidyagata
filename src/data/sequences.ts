@@ -1,5 +1,5 @@
 import "server-only";
-import type { DatabaseSync } from "node:sqlite";
+import type { Db } from "@/lib/db/client";
 
 const SCOPE_PATTERN = /^[a-z][a-z0-9_]{2,31}$/;
 const PERIOD_PATTERN = /^\d{4}$/;
@@ -15,19 +15,19 @@ ON CONFLICT(scope, period) DO UPDATE SET
   updated_at = excluded.updated_at
 RETURNING current_value`;
 
-export function nextSequenceValue(
-  database: DatabaseSync,
+export async function nextSequenceValue(
+  database: Db,
   input: { readonly scope: string; readonly period: string },
-): number {
+): Promise<number> {
   if (!SCOPE_PATTERN.test(input.scope)) {
     throw new RangeError(`Scope urutan tidak valid: ${input.scope}`);
   }
   if (!PERIOD_PATTERN.test(input.period)) {
     throw new RangeError(`Periode urutan tidak valid: ${input.period}`);
   }
-  const row = database
+  const row = (await database
     .prepare(BUMP_AND_READ)
-    .get(input.scope, input.period, new Date().toISOString()) as
+    .get(input.scope, input.period, new Date().toISOString())) as
     | SequenceRow
     | undefined;
   if (row === undefined) throw new Error("sequence_allocation_failed");

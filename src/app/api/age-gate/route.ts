@@ -71,11 +71,11 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  recordAgeBan({
+  await recordAgeBan({
     fingerprint: fingerprintFromHeaders(request.headers),
     eligibleAt,
     now: new Date(),
   });
-  purgeExpiredAgeBans(today);
+  await purgeExpiredAgeBans(today);
   return NextResponse.json({ eligible: false, eligibleAt });
 }

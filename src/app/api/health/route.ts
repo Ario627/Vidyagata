@@ -1,29 +1,24 @@
 import { NextResponse } from "next/server";
-import { pingPostgres } from "@/lib/db/postgres";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { getDb } from "@/lib/db/client";
 
 export async function GET() {
-  let sqliteUp = false;
   try {
-    openAuthDatabase().prepare("SELECT 1").get();
-    sqliteUp = true;
-  } catch {
-    sqliteUp = false;
+    const database = await getDb();
+    await database.prepare("SELECT 1").get();
+    const engine = await database.dialect();
+    return NextResponse.json(
+      { ok: true, engine, time: new Date().toISOString() },
+      { status: 200 },
+    );
+  } catch (error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        engine: "unavailable",
+        detail: error instanceof Error ? error.message : "database_unavailable",
+        time: new Date().toISOString(),
+      },
+      { status: 503 },
+    );
   }
-  const postgresUp = await pingPostgres();
-  const engine =
-    process.env.DATABASE_URL === undefined || process.env.DATABASE_URL === ""
-      ? "sqlite"
-      : "postgres";
-  const ok = engine === "postgres" ? postgresUp : sqliteUp;
-  return NextResponse.json(
-    {
-      ok,
-      engine,
-      sqlite: sqliteUp ? "up" : "down",
-      postgres: postgresUp ? "up" : "not_configured_or_down",
-      time: new Date().toISOString(),
-    },
-    { status: ok ? 200 : 503 },
-  );
 }

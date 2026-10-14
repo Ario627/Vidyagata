@@ -1,5 +1,5 @@
 import "server-only";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { db } from "@/lib/db/client";
 
 export type InstitutionOption = {
   readonly id: string;
@@ -19,10 +19,10 @@ const SELECT_OPTIONS = `SELECT id, name, city, province FROM institutions
 WHERE partnership_status <> 'inactive'
 ORDER BY name`;
 
-export function listInstitutionOptions(): readonly InstitutionOption[] {
-  const rows = openAuthDatabase()
-    .prepare(SELECT_OPTIONS)
-    .all() as InstitutionRow[];
+export async function listInstitutionOptions(): Promise<
+  readonly InstitutionOption[]
+> {
+  const rows = (await db.prepare(SELECT_OPTIONS).all()) as InstitutionRow[];
   return rows.map((row) => ({
     id: row.id,
     name: row.name,

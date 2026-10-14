@@ -31,7 +31,7 @@ export default async function UsiaBelumCukupPage() {
   const ban =
     today === null
       ? null
-      : findActiveAgeBan({
+      : await findActiveAgeBan({
           fingerprint: fingerprintFromHeaders(headerList),
           today,
         });

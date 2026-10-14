@@ -1,7 +1,7 @@
 import "server-only";
 import { createHmac } from "node:crypto";
 import { jakartaPlainDateOf } from "@/domain/account/age";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { db } from "@/lib/db/client";
 import { getServerEnv } from "@/lib/env";
 
 export type AgeBanRecord = {
@@ -27,49 +27,48 @@ export function fingerprintFromHeaders(headerList: Headers): string {
     .digest("hex");
 }
 
-export function findActiveAgeBan(input: {
+export async function findActiveAgeBan(input: {
   readonly fingerprint: string;
   readonly today: string;
-}): AgeBanRecord | null {
-  const row = openAuthDatabase()
+}): Promise<AgeBanRecord | null> {
+  const row = (await db
     .prepare(
       "SELECT eligible_at FROM age_ban WHERE fingerprint = ? AND eligible_at > ? LIMIT 1",
     )
-    .get(input.fingerprint, input.today) as { eligible_at: string } | undefined;
+    .get(input.fingerprint, input.today)) as
+    | { eligible_at: string }
+    | undefined;
   return row === undefined ? null : { eligibleAt: row.eligible_at };
 }
 
-export function hasActiveAgeBan(headerList: Headers): boolean {
+export async function hasActiveAgeBan(headerList: Headers): Promise<boolean> {
   const today = jakartaPlainDateOf(new Date());
   if (today === null) return false;
-  return (
-    findActiveAgeBan({
-      fingerprint: fingerprintFromHeaders(headerList),
-      today,
-    }) !== null
-  );
+  const record = await findActiveAgeBan({
+    fingerprint: fingerprintFromHeaders(headerList),
+    today,
+  });
+  return record !== null;
 }
 
-export function recordAgeBan(input: {
+export async function recordAgeBan(input: {
   readonly fingerprint: string;
   readonly eligibleAt: string;
   readonly now: Date;
-}): void {
+}): Promise<void> {
   const stamp = input.now.toISOString();
-  openAuthDatabase()
+  await db
     .prepare(
       `INSERT INTO age_ban (fingerprint, eligible_at, created_at, updated_at, attempts)
        VALUES (?, ?, ?, ?, 1)
        ON CONFLICT(fingerprint) DO UPDATE SET
-         eligible_at = MAX(eligible_at, excluded.eligible_at),
+         eligible_at = GREATEST(eligible_at, excluded.eligible_at),
          updated_at = excluded.updated_at,
          attempts = attempts + 1`,
     )
     .run(input.fingerprint, input.eligibleAt, stamp, stamp);
 }
 
-export function purgeExpiredAgeBans(today: string): void {
-  openAuthDatabase()
-    .prepare("DELETE FROM age_ban WHERE eligible_at <= ?")
-    .run(today);
+export async function purgeExpiredAgeBans(today: string): Promise<void> {
+  await db.prepare("DELETE FROM age_ban WHERE eligible_at <= ?").run(today);
 }

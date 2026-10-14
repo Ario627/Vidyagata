@@ -1,8 +1,7 @@
 import "server-only";
-import type { DatabaseSync } from "node:sqlite";
 import type { AcademicStatus } from "@/domain/financing/eligibility";
 import { type PlainDate, parsePlainDate } from "@/domain/time/plain-date";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { type Db, db } from "@/lib/db/client";
 import { inTransaction } from "@/lib/db/tx";
 import { newId } from "@/lib/id";
 import { getCurrentUser } from "@/lib/session";
@@ -100,11 +99,11 @@ function toProfile(row: StudentRow): StudentProfile {
   };
 }
 
-function selectProfileRow(
-  database: DatabaseSync,
+async function selectProfileRow(
+  database: Db,
   userId: string,
-): StudentRow | null {
-  const row = database.prepare(SELECT_BY_USER).get(userId) as
+): Promise<StudentRow | null> {
+  const row = (await database.prepare(SELECT_BY_USER).get(userId)) as
     | StudentRow
     | undefined;
   return row ?? null;
@@ -122,7 +121,7 @@ function auditSnapshot(row: StudentRow): AuditSnapshot {
 export async function getMyStudentProfile(): Promise<StudentProfile | null> {
   const user = await getCurrentUser();
   if (user === null) return null;
-  const row = selectProfileRow(openAuthDatabase(), user.id);
+  const row = await selectProfileRow(db, user.id);
   return row === null ? null : toProfile(row);
 }
 
@@ -144,9 +143,9 @@ WHERE s.user_id = ?`;
 export async function getMyStudentIdentity(): Promise<StudentIdentity | null> {
   const user = await getCurrentUser();
   if (user === null) return null;
-  const row = openAuthDatabase()
-    .prepare(SELECT_IDENTITY_BY_USER)
-    .get(user.id) as IdentityRow | undefined;
+  const row = (await db.prepare(SELECT_IDENTITY_BY_USER).get(user.id)) as
+    | IdentityRow
+    | undefined;
   if (row === undefined) return null;
   return { profile: toProfile(row), institutionName: row.institution_name };
 }
@@ -156,8 +155,8 @@ export async function saveStudentProfile(
 ): Promise<StudentProfile> {
   const user = await getCurrentUser();
   if (user === null) throw new Error("unauthenticated");
-  const database = openAuthDatabase();
-  const previous = selectProfileRow(database, user.id);
+  const database = db;
+  const previous = await selectProfileRow(database, user.id);
   const occurredAt = new Date();
   const stamp = occurredAt.toISOString();
   const studentId = previous?.id ?? newId(occurredAt.getTime());
@@ -190,8 +189,8 @@ export async function saveStudentProfile(
           after: { gpaHundredths: after.gpaHundredths },
         })
       : null;
-  inTransaction(database, () => {
-    database
+  await inTransaction(database, async () => {
+    await database
       .prepare(UPSERT_STUDENT)
       .run(
         studentId,
@@ -208,10 +207,10 @@ export async function saveStudentProfile(
         stamp,
         stamp,
       );
-    appendAudit(database, prepared);
-    if (gpaAudit !== null) appendAudit(database, gpaAudit);
+    await appendAudit(database, prepared);
+    if (gpaAudit !== null) await appendAudit(database, gpaAudit);
   });
-  const saved = selectProfileRow(database, user.id);
+  const saved = await selectProfileRow(database, user.id);
   if (saved === null) throw new Error("student_profile_corrupt");
   return toProfile(saved);
 }

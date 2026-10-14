@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { buildPublicRef, isPublicRef } from "@/domain/financing/public-ref";
-import { openAuthDatabase } from "@/lib/db/sqlite";
+import { getDb } from "@/lib/db/client";
 import { nextSequenceValue } from "./sequences";
 
 const directory = mkdtempSync(join(tmpdir(), "vidyagata-sequences-"));
@@ -14,44 +14,47 @@ afterAll(() => {
 });
 
 describe("nextSequenceValue", () => {
-  it("mulai dari 1 lalu naik satu per pemanggilan", () => {
-    const database = openAuthDatabase();
+  it("mulai dari 1 lalu naik satu per pemanggilan", async () => {
+    const database = await getDb();
     const scope = { scope: "financing_facility", period: "2026" };
-    expect(nextSequenceValue(database, scope)).toBe(1);
-    expect(nextSequenceValue(database, scope)).toBe(2);
-    expect(nextSequenceValue(database, scope)).toBe(3);
+    expect(await nextSequenceValue(database, scope)).toBe(1);
+    expect(await nextSequenceValue(database, scope)).toBe(2);
+    expect(await nextSequenceValue(database, scope)).toBe(3);
   });
 
-  it("memisahkan urutan per periode dan per scope", () => {
-    const database = openAuthDatabase();
+  it("memisahkan urutan per periode dan per scope", async () => {
+    const database = await getDb();
     expect(
-      nextSequenceValue(database, {
+      await nextSequenceValue(database, {
         scope: "financing_facility",
         period: "2027",
       }),
     ).toBe(1);
     expect(
-      nextSequenceValue(database, { scope: "payment_receipt", period: "2026" }),
+      await nextSequenceValue(database, {
+        scope: "payment_receipt",
+        period: "2026",
+      }),
     ).toBe(1);
     expect(
-      nextSequenceValue(database, {
+      await nextSequenceValue(database, {
         scope: "financing_facility",
         period: "2026",
       }),
     ).toBe(4);
   });
 
-  it("menolak scope dan periode yang tidak valid", () => {
-    const database = openAuthDatabase();
-    expect(() =>
+  it("menolak scope dan periode yang tidak valid", async () => {
+    const database = await getDb();
+    await expect(
       nextSequenceValue(database, { scope: "Upper", period: "2026" }),
-    ).toThrow(RangeError);
-    expect(() =>
+    ).rejects.toThrow(RangeError);
+    await expect(
       nextSequenceValue(database, { scope: "ab", period: "2026" }),
-    ).toThrow(RangeError);
-    expect(() =>
+    ).rejects.toThrow(RangeError);
+    await expect(
       nextSequenceValue(database, { scope: "valid_scope", period: "26" }),
-    ).toThrow(RangeError);
+    ).rejects.toThrow(RangeError);
   });
 });
 

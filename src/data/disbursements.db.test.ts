@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { getDb } from "@/lib/db/client";
 import { openAuthDatabase } from "@/lib/db/sqlite";
 import {
   decideDisbursement,
@@ -96,7 +97,8 @@ function asOfficer(userId: string) {
   session.userId = userId;
 }
 
-beforeAll(() => {
+beforeAll(async () => {
+  await getDb();
   const database = openAuthDatabase();
   database
     .prepare(
