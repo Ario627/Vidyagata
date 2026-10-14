@@ -140,8 +140,11 @@ function entriesOf(data: Record<string, unknown>): {
   readonly columns: readonly string[];
   readonly values: readonly SqlValue[];
 } {
-  const columns = Object.keys(data).map(identifierOf);
-  return { columns, values: columns.map((column) => toSqlValue(data[column])) };
+  const names = Object.keys(data);
+  return {
+    columns: names.map(identifierOf),
+    values: names.map((name) => toSqlValue(data[name])),
+  };
 }
 
 const tableColumns = new Map<string, ReadonlySet<string>>();
