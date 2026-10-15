@@ -28,11 +28,11 @@ export async function migratePostgres(database: Db): Promise<void> {
       .get();
     await database.execute(CREATE_MIGRATIONS_TABLE);
     await database.execute(POSTGRES_SCHEMA);
+    await applyPlatformSeeds(database);
+    await applyIdentitySeeds(database);
+    await applyWorkSeeds(database);
     await database
       .prepare(RECORD_VERSION)
       .run(SCHEMA_VERSION, new Date().toISOString());
   });
-  await applyPlatformSeeds(database);
-  await applyIdentitySeeds(database);
-  await applyWorkSeeds(database);
 }

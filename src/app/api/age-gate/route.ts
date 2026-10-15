@@ -12,14 +12,39 @@ const MAX_BODY_BYTES = 1024;
 
 const requestSchema = z.object({ birthdate: BirthdateInput });
 
-function isSameOrigin(request: Request): boolean {
-  const origin = request.headers.get("origin");
-  if (origin === null) return true;
+function normalizeOrigin(value: string | undefined): string | null {
+  if (!value) return null;
+
   try {
-    return new URL(origin).host === new URL(request.url).host;
+    return new URL(value).origin;
   } catch {
-    return false;
+    return null;
   }
+}
+
+function isSameOrigin(request: Request): boolean {
+  const originHeader = request.headers.get("origin");
+
+
+  if (originHeader === null) return true;
+
+  const origin = normalizeOrigin(originHeader);
+  if (origin === null) return false;
+
+  const allowedOrigins = [
+    process.env.APP_ORIGIN,
+    process.env.URL,
+    ...(process.env.NODE_ENV === "development"
+    ? ["http://localhost:3000"]
+    : []),
+  ]
+  .map(normalizeOrigin)
+  .filter((value): value is string => value !== null);
+
+
+  if (allowedOrigins.length === 0) return false;
+
+  return allowedOrigins.includes(origin);
 }
 
 export async function POST(request: Request) {

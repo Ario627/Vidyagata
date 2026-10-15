@@ -1,8 +1,11 @@
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { DatabaseSync } from "node:sqlite";
-import { getPostgresClient, type PostgresClient } from "./postgres";
-import { openAuthDatabase } from "./sqlite";
+import {
+  assertPostgresReachable,
+  getPostgresClient,
+  type PostgresClient,
+} from "./postgres";
 
 export type SqlValue = string | number | bigint | boolean | null;
 
@@ -21,8 +24,6 @@ export type Db = {
   transaction<T>(fn: () => Promise<T>): Promise<T>;
   columnNames(table: string): Promise<ReadonlySet<string>>;
 };
-
-const PLACEHOLDER_PATTERN = "?";
 
 function toPgPlaceholders(sql: string): string {
   let out = "";
@@ -181,6 +182,7 @@ async function createDb(): Promise<Db> {
     const { applyIdentitySeeds } = await import("./seed/identity");
     const { applyPlatformSeeds } = await import("./seed/platform");
     const { applyWorkSeeds } = await import("./seed/work");
+    const { openAuthDatabase } = await import("./sqlite");
     const database = wrapSqlite(openAuthDatabase());
     await applyPlatformSeeds(database);
     await applyIdentitySeeds(database);
@@ -189,6 +191,7 @@ async function createDb(): Promise<Db> {
   }
   const client = getPostgresClient();
   if (client === null) throw new Error("DATABASE_URL tidak valid");
+  await assertPostgresReachable(client);
   const database = wrapPostgres(client);
   const { migratePostgres } = await import("./postgres-migrate");
   await migratePostgres(database);
@@ -198,7 +201,10 @@ async function createDb(): Promise<Db> {
 let ready: Promise<Db> | null = null;
 
 export function getDb(): Promise<Db> {
-  ready ??= createDb();
+  ready ??= createDb().catch((error: unknown) => {
+    ready = null;
+    throw error;
+  });
   return ready;
 }
 
