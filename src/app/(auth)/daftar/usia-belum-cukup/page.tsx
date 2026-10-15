@@ -61,7 +61,7 @@ export default async function UsiaBelumCukupPage() {
             Perangkat ini tercatat
           </p>
           <p className="mt-1 text-sm leading-6 text-foreground">
-            Pendaftaran dan masuk dari perangkat ini dibuka otomatis pada{" "}
+            Pendaftaran dari perangkat ini dibuka otomatis pada{" "}
             {formatEligibleAt(ban.eligibleAt)}. Catatannya hanya cap perangkat —
             alamat jaringan dan peramban yang digabung lalu diacak satu arah —
             jadi tidak bisa dibaca balik, dan tanggal lahir tidak tersimpan.

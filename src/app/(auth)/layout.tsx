@@ -37,8 +37,8 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
       </main>
       <footer className="px-4 pb-10">
         <p className="mx-auto w-full max-w-sm text-xs leading-5 text-foreground-subtle">
-          Kode verifikasi berlaku sekali pakai — jangan pernah dibagikan ke
-          siapa pun, termasuk yang mengaku tim Vidyagata.
+          Kode sekali pakai, termasuk kode pemulihan akun, tidak pernah kami
+          minta — jangan bagikan ke siapa pun.
         </p>
       </footer>
     </div>

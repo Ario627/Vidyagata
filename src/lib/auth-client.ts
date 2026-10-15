@@ -1,5 +1,4 @@
 import {
-  emailOTPClient,
   inferAdditionalFields,
   twoFactorClient,
   usernameClient,
@@ -10,7 +9,6 @@ import type { auth } from "./auth";
 export const authClient = createAuthClient({
   plugins: [
     usernameClient(),
-    emailOTPClient(),
     twoFactorClient(),
     inferAdditionalFields<typeof auth>(),
   ],

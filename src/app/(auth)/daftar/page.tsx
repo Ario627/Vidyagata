@@ -4,13 +4,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { OnboardingFlow } from "@/components/auth/onboarding/onboarding-flow";
 import { hasActiveAgeBan } from "@/lib/age-ban";
-import { OTP_RESEND_COOLDOWN_MS, OTP_TTL_MS } from "@/lib/crypto/otp";
 import { getCurrentUser } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "Daftar",
   description:
-    "Buat akun Vidyagata dengan email, username, dan kata sandi. Verifikasi email lalu lengkapi data diri.",
+    "Buat akun Vidyagata dengan email, username, dan kata sandi, lalu lengkapi data dirimu.",
 };
 
 export const instant = false;
@@ -35,10 +34,7 @@ export default async function DaftarPage() {
           bisa melihat sedang di tahap mana.
         </p>
       </header>
-      <OnboardingFlow
-        resendCooldownSeconds={OTP_RESEND_COOLDOWN_MS / 1000}
-        ttlMinutes={OTP_TTL_MS / 60_000}
-      />
+      <OnboardingFlow />
       <p className="text-sm text-foreground-muted">
         Sudah punya akun?{" "}
         <Link

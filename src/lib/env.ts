@@ -1,18 +1,11 @@
 import "server-only";
 import { z } from "zod";
 import { err, ok, type Result } from "@/domain/shared/result";
-import {
-  EMAIL_PROVIDERS,
-  type EmailProviderId,
-} from "@/integrations/email/gateway";
 
 export type ServerEnv = {
   readonly NODE_ENV: "development" | "test" | "production";
   readonly VERCEL_ENV?: "development" | "preview" | "production" | undefined;
   readonly OTP_PEPPER: string;
-  readonly EMAIL_PROVIDER: EmailProviderId;
-  readonly SMTP_URL?: string | undefined;
-  readonly EMAIL_FROM: string;
   readonly DATABASE_URL?: string | undefined;
 };
 
@@ -24,26 +17,12 @@ const serverEnvSchema = z.object({
     .default("development"),
   VERCEL_ENV: z.enum(["development", "preview", "production"]).optional(),
   OTP_PEPPER: z.string().min(32, { error: "OTP_PEPPER minimal 32 karakter" }),
-  EMAIL_PROVIDER: z.enum(EMAIL_PROVIDERS).default("console"),
-  SMTP_URL: z
-    .string()
-    .regex(/^smtps?:\/\//, {
-      error: "SMTP_URL harus diawali smtp:// atau smtps://",
-    })
-    .optional(),
-  EMAIL_FROM: z
-    .string()
-    .min(3, { error: "EMAIL_FROM minimal 3 karakter" })
-    .default("Vidyagata <no-reply@vidyagata.id>"),
   DATABASE_URL: z
     .string()
     .regex(/^postgres(ql)?:\/\//, {
       error: "DATABASE_URL harus diawali postgres:// atau postgresql://",
     })
     .optional(),
-  TWILIO_ACCOUNT_SID: z.string().min(1).optional(),
-  TWILIO_AUTH_TOKEN: z.string().min(1).optional(),
-  TWILIO_FROM: z.string().min(1).optional(),
 });
 
 function toIssueMessages(error: z.ZodError): string[] {
@@ -57,18 +36,6 @@ export function parseServerEnv(
 ): Result<ServerEnv, readonly ServerEnvIssue[]> {
   const parsed = serverEnvSchema.safeParse(input);
   if (!parsed.success) return err(toIssueMessages(parsed.error));
-  if (
-    parsed.data.VERCEL_ENV === "production" &&
-    parsed.data.EMAIL_PROVIDER === "console"
-  ) {
-    return err(["EMAIL_PROVIDER: sink console dilarang di produksi Vercel"]);
-  }
-  if (
-    parsed.data.EMAIL_PROVIDER === "smtp" &&
-    parsed.data.SMTP_URL === undefined
-  ) {
-    return err(["SMTP_URL: wajib diisi kalau EMAIL_PROVIDER=smtp"]);
-  }
   return ok(parsed.data);
 }
 

@@ -1,13 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import {
-  eighteenthBirthday,
-  evaluateAgeGate,
-  jakartaPlainDateOf,
-} from "@/domain/account/age";
+import { evaluateAgeGate, jakartaPlainDateOf } from "@/domain/account/age";
 import {
   fingerprintFromHeaders,
-  purgeExpiredAgeBans,
+  purgeStaleAgeBans,
   recordAgeBan,
 } from "@/lib/age-ban";
 import { BirthdateInput } from "@/schemas/onboarding";
@@ -64,18 +60,11 @@ export async function POST(request: Request) {
   if (decision.kind === "eligible") {
     return NextResponse.json({ eligible: true, age: decision.age });
   }
-  const eligibleAt = eighteenthBirthday(parsed.data.birthdate);
-  if (eligibleAt === null) {
-    return NextResponse.json(
-      { error: "tanggal_lahir_tidak_valid" },
-      { status: 400 },
-    );
-  }
-  await recordAgeBan({
+  const now = new Date();
+  const eligibleAt = await recordAgeBan({
     fingerprint: fingerprintFromHeaders(request.headers),
-    eligibleAt,
-    now: new Date(),
+    now,
   });
-  await purgeExpiredAgeBans(today);
+  await purgeStaleAgeBans(now);
   return NextResponse.json({ eligible: false, eligibleAt });
 }

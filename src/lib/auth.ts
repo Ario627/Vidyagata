@@ -1,17 +1,9 @@
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { emailOTP, twoFactor, username } from "better-auth/plugins";
+import { twoFactor, username } from "better-auth/plugins";
 import { markTotpCodeUsed, wasTotpCodeUsed } from "@/data/mfa-code-guard";
-import { createEmailGateway } from "@/integrations/email/gateway";
-import {
-  buildOtpEmailSubject,
-  buildOtpEmailText,
-} from "@/integrations/email/message";
 import { evaluateSignUpAgeGate } from "@/lib/age-gate";
-import { OTP_MAX_ATTEMPTS, OTP_TTL_MS } from "@/lib/crypto/otp";
 import { createAuthDatabase } from "@/lib/db/auth-adapter";
-import { getServerEnv } from "@/lib/env";
-import { OTP_CODE_LENGTH } from "@/schemas/auth";
 import {
   BirthdateInput,
   PASSWORD_MAX_LENGTH,
@@ -55,6 +47,15 @@ export const auth = betterAuth({
       return rejection ?? undefined;
     },
   },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => {
+          return { data: { ...user, emailVerified: true } };
+        },
+      },
+    },
+  },
   rateLimit: {
     enabled: true,
     window: 60,
@@ -62,8 +63,6 @@ export const auth = betterAuth({
     storage: "database",
     customRules: {
       "/sign-up/email": { window: 300, max: 10 },
-      "/email-otp/send-verification-otp": { window: 60, max: 3 },
-      "/email-otp/verify-email": { window: 60, max: 10 },
       "/sign-in/email": { window: 60, max: 10 },
     },
   },
@@ -103,32 +102,6 @@ export const auth = betterAuth({
       minUsernameLength: USERNAME_MIN_LENGTH,
       maxUsernameLength: USERNAME_MAX_LENGTH,
       usernameValidator: (value) => USERNAME_PATTERN.test(value),
-    }),
-    emailOTP({
-      otpLength: OTP_CODE_LENGTH,
-      expiresIn: Math.round(OTP_TTL_MS / 1000),
-      allowedAttempts: OTP_MAX_ATTEMPTS,
-      storeOTP: "hashed",
-      async sendVerificationOTP({ email, otp, type }) {
-        const env = getServerEnv();
-        const gateway = createEmailGateway({
-          provider: env.EMAIL_PROVIDER,
-          smtpUrl: env.SMTP_URL,
-          from: env.EMAIL_FROM,
-        });
-        const sent = await gateway.send({
-          to: email,
-          subject: buildOtpEmailSubject(type),
-          text: buildOtpEmailText(otp, OTP_TTL_MS),
-        });
-        if (!sent.ok) {
-          throw APIError.from("BAD_GATEWAY", {
-            code: "EMAIL_SEND_FAILED",
-            message:
-              "Kode tidak bisa dikirim ke email sekarang. Coba lagi sebentar lagi.",
-          });
-        }
-      },
     }),
     twoFactor({
       issuer: "Vidyagata",
