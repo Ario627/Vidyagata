@@ -15,13 +15,23 @@ import {
 
 const TOTP_VERIFY_PATH = "/two-factor/verify-totp";
 const TWO_FACTOR_COOKIE = "two_factor";
-const TOTP_REPLAY_ERROR_CODE = "TOTP_CODE_ALREADY_USED";
+const TOTP_REPLAY_ERROR_CODE = "TOTP_CODE_ALREADY_USED"
+
+const trustedOrigins = [
+  process.env.BETTER_AUTH_URL,
+  process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined,
+  process.env.RAILWAY_PUBLIC_DOMAIN
+    ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`
+    : undefined,
+  ...(process.env.NODE_ENV === "development" ? ["http://localhost:3000"] : []),
+]
+  .filter((origin): origin is string => Boolean(origin))
+  .map((origin) => new URL(origin).origin);
 
 export const auth = betterAuth({
   appName: "Vidyagata",
-  trustedOrigins: process.env.VERCEL_URL
-    ? [`https://${process.env.VERCEL_URL}`]
-    : undefined,
+  baseURL: process.env.BETTER_AUTH_URL,
+  trustedOrigins,
   database: createAuthDatabase(),
   emailAndPassword: {
     enabled: true,
