@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { InstitutionOption } from "@/components/account/student-profile-form";
 import type { PlainDate } from "@/domain/time/plain-date";
 import { OnboardingProgress } from "./onboarding-progress";
 import { StepAccount } from "./step-account";
@@ -25,7 +26,13 @@ const STEP_LABELS: Readonly<Record<OnboardingStep, string>> = {
   documents: "Dokumen",
 };
 
-function OnboardingFlow() {
+function OnboardingFlow({
+  captchaSiteKey,
+  institutions,
+}: {
+  readonly captchaSiteKey: string | null;
+  readonly institutions: readonly InstitutionOption[];
+}) {
   const router = useRouter();
   const [step, setStep] = useState<OnboardingStep>("birthdate");
   const [birthdate, setBirthdate] = useState<PlainDate | null>(null);
@@ -53,10 +60,17 @@ function OnboardingFlow() {
         />
       ) : null}
       {step === "account" && birthdate !== null ? (
-        <StepAccount birthdate={birthdate} onNext={() => setStep("profile")} />
+        <StepAccount
+          birthdate={birthdate}
+          captchaSiteKey={captchaSiteKey}
+          onNext={() => setStep("profile")}
+        />
       ) : null}
       {step === "profile" ? (
-        <StepProfile onNext={() => setStep("documents")} />
+        <StepProfile
+          institutions={institutions}
+          onNext={() => setStep("documents")}
+        />
       ) : null}
       {step === "documents" ? <StepDocuments onComplete={finish} /> : null}
     </div>

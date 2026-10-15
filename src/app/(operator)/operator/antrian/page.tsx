@@ -2,12 +2,11 @@ import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/app/page-header";
 import { STATUS_META } from "@/components/financing/labels";
-import { MfaRedirect } from "@/components/operator/mfa-redirect";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { requireRole } from "@/data/dal";
 import { listReviewQueue, type QueueItem } from "@/data/operator";
-import { requireOperatorMfa } from "@/data/two-factor";
 import { formatIDR } from "@/lib/format/currency";
 import { formatInstantWib } from "@/lib/format/date";
 
@@ -56,8 +55,7 @@ function QueueRow({ item }: { readonly item: QueueItem }) {
 }
 
 export default async function OperatorQueuePage() {
-  const { mfaRequired } = await requireOperatorMfa();
-  if (mfaRequired) return <MfaRedirect />;
+  await requireRole("operator");
   const queue = await listReviewQueue();
   const pending = queue.filter((item) => item.status === "submitted");
   const inReview = queue.filter((item) => item.status === "under_review");

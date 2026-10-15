@@ -44,6 +44,8 @@ function buildContentSecurityPolicy(nonce: string, isDev: boolean): string {
     "style-src-attr 'unsafe-inline'",
     "img-src 'self' blob: data:",
     "font-src 'self'",
+    "connect-src 'self' https://challenges.cloudflare.com",
+    "frame-src https://challenges.cloudflare.com",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -100,5 +102,6 @@ export const config = {
     "/masuk",
     "/masuk/dua-faktor",
     "/daftar",
+    "/lupa-akses/:path*",
   ],
 };

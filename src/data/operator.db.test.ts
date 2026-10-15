@@ -164,24 +164,24 @@ describe("claimFacility", () => {
   });
 });
 
-describe("gate verifikasi dua langkah", () => {
-  it("menolak aksi tulis operator yang belum mengaktifkan dua langkah", async () => {
+describe("kebijakan verifikasi dua langkah", () => {
+  it("tidak lagi memblokir aksi tulis, tetapi otorisasi tetap ditegakkan", async () => {
     session.userId = "officer-3";
     const claimed = await claimFacility("facility-000001");
     expect(claimed.ok).toBe(false);
     if (claimed.ok) return;
-    expect(claimed.code).toBe("mfa_required");
+    expect(claimed.code).toBe("invalid_transition");
     const forwarded = await forwardFacility({ facilityId: "facility-000001" });
     expect(forwarded.ok).toBe(false);
     if (forwarded.ok) return;
-    expect(forwarded.code).toBe("mfa_required");
+    expect(forwarded.code).toBe("facility_not_found");
     const rejected = await rejectFacility({
       facilityId: "facility-000001",
       reason: "Percobaan tanpa dua langkah",
     });
     expect(rejected.ok).toBe(false);
     if (rejected.ok) return;
-    expect(rejected.code).toBe("mfa_required");
+    expect(rejected.code).toBe("facility_not_found");
     session.userId = "officer-1";
   });
 });

@@ -1,7 +1,7 @@
 import postgres from "postgres";
 import { POSTGRES_SCHEMA } from "../src/lib/db/schema/postgres.ts";
 
-const SCHEMA_VERSION = "0001_init";
+const SCHEMA_VERSION = "0002_student_documents";
 
 if (process.loadEnvFile !== undefined) {
   try {
@@ -54,7 +54,7 @@ async function main() {
   });
   console.log(`selesai ${SCHEMA_VERSION}`);
   console.log(
-    "Seed parameter, lembaga, dan lowongan berjalan otomatis saat request pertama aplikasi.",
+    "Seed katalog + data demo dijalankan otomatis oleh aplikasi saat request pertama (set SEED_DEMO=true untuk ikut membuat akun demo).",
   );
   await sql.end({ timeout: 5 });
 }

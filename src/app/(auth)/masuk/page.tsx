@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { EmailSignIn } from "@/components/auth/email-sign-in";
 import { defaultLandingPath } from "@/data/roles";
+import { captchaSettings } from "@/lib/captcha";
 import { safeNextPath } from "@/lib/next-path";
 import { getCurrentUser } from "@/lib/session";
 
@@ -32,7 +33,10 @@ export default async function MasukPage({ searchParams }: PageProps<"/masuk">) {
           Masuk dengan email dan kata sandi yang kamu pakai saat mendaftar.
         </p>
       </header>
-      <EmailSignIn nextPath={nextPath} />
+      <EmailSignIn
+        nextPath={nextPath}
+        captchaSiteKey={captchaSettings().siteKey}
+      />
       <p className="text-sm text-foreground-muted">
         Belum punya akun?{" "}
         <Link

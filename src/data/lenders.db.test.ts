@@ -14,12 +14,12 @@ afterAll(() => {
 });
 
 describe("getPilotLenderTerms", () => {
-  it("menyemai satu mitra pilot saat database dibuka", async () => {
+  it("menyemai mitra pilot saat database dibuka", async () => {
     const database = await getDb();
     const count = (await database
       .prepare("SELECT COUNT(*) AS total FROM lenders WHERE status = 'pilot'")
       .get()) as { total: number };
-    expect(count.total).toBe(1);
+    expect(count.total).toBe(8);
   });
 
   it("memetakan syarat mitra dengan tipe yang benar", async () => {

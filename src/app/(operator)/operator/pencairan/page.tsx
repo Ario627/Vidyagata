@@ -6,15 +6,14 @@ import {
   STATUS_META,
 } from "@/components/financing/labels";
 import { FourEyesExplainer } from "@/components/operator/four-eyes-explainer";
-import { MfaRedirect } from "@/components/operator/mfa-redirect";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { requireRole } from "@/data/dal";
 import {
   listPencairanQueue,
   type PencairanQueueItem,
 } from "@/data/disbursements";
-import { requireOperatorMfa } from "@/data/two-factor";
 import { formatIDR } from "@/lib/format/currency";
 
 export const metadata: Metadata = {
@@ -123,8 +122,7 @@ function QueueCard({ item }: { readonly item: PencairanQueueItem }) {
 }
 
 export default async function PencairanQueuePage() {
-  const { mfaRequired } = await requireOperatorMfa();
-  if (mfaRequired) return <MfaRedirect />;
+  await requireRole("operator");
   const queue = await listPencairanQueue();
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">

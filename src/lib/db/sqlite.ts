@@ -2,6 +2,7 @@ import "server-only";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { DOCUMENTS_SCHEMA } from "./schema/documents";
 import { FINANCING_SCHEMA, migrateFinancingIndexes } from "./schema/financing";
 import { IDENTITY_SCHEMA } from "./schema/identity";
 import { MONEY_SCHEMA } from "./schema/money";
@@ -120,6 +121,9 @@ const ADDITIVE_COLUMNS: readonly AdditiveColumn[] = [
     definition: "INTEGER NOT NULL DEFAULT 0",
   },
   { table: "user", column: "totpLastCodeHash", definition: "TEXT" },
+  { table: "students", column: "address_line", definition: "TEXT" },
+  { table: "students", column: "hobby", definition: "TEXT" },
+  { table: "students", column: "bio", definition: "TEXT" },
 ];
 
 function ensureAdditiveColumns(database: DatabaseSync): void {
@@ -169,6 +173,7 @@ export function openAuthDatabase(): DatabaseSync {
   execWithRetry(database, MONEY_SCHEMA);
   execWithRetry(database, SEQUENCE_SCHEMA);
   execWithRetry(database, WORK_SCHEMA);
+  execWithRetry(database, DOCUMENTS_SCHEMA);
   ensureAdditiveColumns(database);
   instance = database;
   return database;

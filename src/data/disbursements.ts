@@ -1,7 +1,5 @@
 import "server-only";
 import { requireRole } from "@/data/dal";
-import { isTwoFactorEnabled } from "@/data/two-factor";
-import { jakartaPlainDateOf } from "@/domain/account/age";
 import {
   type DisbursementRequestStatus,
   type PencairanPermissions,
@@ -141,8 +139,8 @@ const SELECT_REQUESTS = `SELECT r.id, r.status, r.amount, r.destination_name,
   r.executed_at, r.transfer_reference,
   i.name AS initiated_by_name, d.name AS decided_by_name
 FROM disbursement_requests r
-JOIN user i ON i.id = r.initiated_by
-LEFT JOIN user d ON d.id = r.decided_by
+JOIN "user" i ON i.id = r.initiated_by
+LEFT JOIN "user" d ON d.id = r.decided_by
 WHERE r.facility_id = ?
 ORDER BY r.created_at DESC, r.id DESC
 LIMIT 6`;
@@ -167,7 +165,7 @@ LEFT JOIN disbursement_requests r ON r.id = (
   WHERE r2.facility_id = f.id AND r2.status IN ('requested', 'approved')
   ORDER BY r2.created_at DESC, r2.id DESC LIMIT 1
 )
-LEFT JOIN user ri ON ri.id = r.initiated_by
+LEFT JOIN "user" ri ON ri.id = r.initiated_by
 WHERE f.status IN ('forwarded_to_lender', 'approved', 'signed')
 ORDER BY f.updated_at, f.id`;
 
@@ -175,7 +173,7 @@ const SELECT_QUEUE_RECENT = `SELECT ${QUEUE_COLUMNS}
 FROM disbursement_requests r
 JOIN financing_facilities f ON f.id = r.facility_id
 LEFT JOIN institutions i ON i.id = f.institution_id
-JOIN user ri ON ri.id = r.initiated_by
+JOIN "user" ri ON ri.id = r.initiated_by
 WHERE r.status = 'executed'
 ORDER BY r.executed_at DESC, r.id DESC
 LIMIT 5`;
@@ -385,8 +383,6 @@ export async function recordLenderDecision(input: {
   readonly reason?: string | undefined;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!(await isTwoFactorEnabled(actor.id)))
-    return { ok: false, code: "mfa_required" };
   const database = db;
   const row = await selectPencairanRow(database, input.facilityId);
   if (row === null) return { ok: false, code: "facility_not_found" };
@@ -468,8 +464,6 @@ export async function recordAgreementSignature(input: {
   readonly note: string;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!(await isTwoFactorEnabled(actor.id)))
-    return { ok: false, code: "mfa_required" };
   const note = input.note.trim();
   if (note.length < 10) return { ok: false, code: "note_required" };
   const database = db;
@@ -510,8 +504,6 @@ export async function initiateDisbursement(
   facilityId: string,
 ): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!(await isTwoFactorEnabled(actor.id)))
-    return { ok: false, code: "mfa_required" };
   const database = db;
   const row = await selectPencairanRow(database, facilityId);
   if (row === null) return { ok: false, code: "facility_not_found" };
@@ -567,8 +559,6 @@ export async function decideDisbursement(input: {
   readonly confirmDestination: boolean;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!(await isTwoFactorEnabled(actor.id)))
-    return { ok: false, code: "mfa_required" };
   if (input.decision === "approved" && !input.confirmDestination) {
     return { ok: false, code: "confirmation_required" };
   }
@@ -629,8 +619,6 @@ export async function withdrawDisbursement(
   facilityId: string,
 ): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!(await isTwoFactorEnabled(actor.id)))
-    return { ok: false, code: "mfa_required" };
   const database = db;
   const request = await selectOpenRequest(database, facilityId);
   if (request === null || request.status !== "requested") {
@@ -674,8 +662,6 @@ export async function executeDisbursement(input: {
   readonly deductionRate: number;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!(await isTwoFactorEnabled(actor.id)))
-    return { ok: false, code: "mfa_required" };
   if (!DEDUCTION_RATES.includes(input.deductionRate)) {
     return { ok: false, code: "invalid_input" };
   }

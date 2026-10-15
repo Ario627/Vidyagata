@@ -103,6 +103,9 @@ CREATE TABLE IF NOT EXISTS students (
   academic_verified_at TEXT,
   province TEXT NOT NULL,
   city TEXT NOT NULL,
+  address_line TEXT,
+  hobby TEXT,
+  bio TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );

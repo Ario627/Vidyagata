@@ -1,9 +1,26 @@
 import { betterAuth } from "better-auth";
 import { APIError, createAuthMiddleware } from "better-auth/api";
-import { twoFactor, username } from "better-auth/plugins";
+import {
+  captcha,
+  haveIBeenPwned,
+  twoFactor,
+  username,
+} from "better-auth/plugins";
+import { recordAudit } from "@/data/audit";
 import { markTotpCodeUsed, wasTotpCodeUsed } from "@/data/mfa-code-guard";
+import {
+  buildPasswordResetEmailSubject,
+  buildPasswordResetEmailText,
+} from "@/integrations/email/message";
 import { evaluateSignUpAgeGate } from "@/lib/age-gate";
+import { captchaSettings } from "@/lib/captcha";
 import { createAuthDatabase } from "@/lib/db/auth-adapter";
+import { sendTransactionalEmail } from "@/lib/mailer";
+import {
+  hashPasswordSecurely,
+  needsPasswordRehash,
+  verifyStoredPassword,
+} from "@/lib/password";
 import {
   BirthdateInput,
   PASSWORD_MAX_LENGTH,
@@ -14,8 +31,25 @@ import {
 } from "@/schemas/onboarding";
 
 const TOTP_VERIFY_PATH = "/two-factor/verify-totp";
+const SIGN_IN_EMAIL_PATH = "/sign-in/email";
 const TWO_FACTOR_COOKIE = "two_factor";
-const TOTP_REPLAY_ERROR_CODE = "TOTP_CODE_ALREADY_USED"
+const TOTP_REPLAY_ERROR_CODE = "TOTP_CODE_ALREADY_USED";
+const RESET_TOKEN_TTL_SECONDS = 1800;
+const RESET_TOKEN_TTL_MS = RESET_TOKEN_TTL_SECONDS * 1000;
+
+const captchaConfig = captchaSettings();
+const captchaPlugin =
+  captchaConfig.enabled && captchaConfig.secretKey !== null
+    ? captcha({
+        provider: "cloudflare-turnstile",
+        secretKey: captchaConfig.secretKey,
+        endpoints: [
+          "/sign-up/email",
+          "/sign-in/email",
+          "/request-password-reset",
+        ],
+      })
+    : null;
 
 const trustedOrigins = [
   process.env.BETTER_AUTH_URL,
@@ -37,6 +71,28 @@ export const auth = betterAuth({
     enabled: true,
     minPasswordLength: PASSWORD_MIN_LENGTH,
     maxPasswordLength: PASSWORD_MAX_LENGTH,
+    password: {
+      hash: hashPasswordSecurely,
+      verify: verifyStoredPassword,
+    },
+    resetPasswordTokenExpiresIn: RESET_TOKEN_TTL_SECONDS,
+    revokeSessionsOnPasswordReset: true,
+    sendResetPassword: async ({ user, url }) => {
+      await sendTransactionalEmail({
+        to: user.email,
+        subject: buildPasswordResetEmailSubject(),
+        text: buildPasswordResetEmailText(url, RESET_TOKEN_TTL_MS),
+      });
+    },
+    onPasswordReset: async ({ user }) => {
+      await recordAudit({
+        actorType: "user",
+        actorId: user.id,
+        action: "auth.password_reset",
+        entityType: "user",
+        entityId: user.id,
+      });
+    },
   },
   user: {
     additionalFields: {
@@ -74,6 +130,8 @@ export const auth = betterAuth({
     customRules: {
       "/sign-up/email": { window: 300, max: 10 },
       "/sign-in/email": { window: 60, max: 10 },
+      "/request-password-reset": { window: 300, max: 5 },
+      "/reset-password": { window: 600, max: 10 },
     },
   },
   hooks: {
@@ -99,12 +157,35 @@ export const auth = betterAuth({
       }
     }),
     after: createAuthMiddleware(async (ctx) => {
-      if (ctx.path !== TOTP_VERIFY_PATH) return;
-      const user = ctx.context.newSession?.user;
-      if (user === null || user === undefined) return;
-      const submitted = (ctx.body as { code?: unknown } | undefined)?.code;
-      if (typeof submitted !== "string" || submitted.length === 0) return;
-      await markTotpCodeUsed(user.id, submitted);
+      if (ctx.path === TOTP_VERIFY_PATH) {
+        const user = ctx.context.newSession?.user;
+        if (user === null || user === undefined) return;
+        const submitted = (ctx.body as { code?: unknown } | undefined)?.code;
+        if (typeof submitted !== "string" || submitted.length === 0) return;
+        await markTotpCodeUsed(user.id, submitted);
+        return;
+      }
+      if (ctx.path !== SIGN_IN_EMAIL_PATH) return;
+      const signedIn = ctx.context.newSession?.user;
+      if (signedIn === null || signedIn === undefined) return;
+      const password = (ctx.body as { password?: unknown } | undefined)
+        ?.password;
+      if (typeof password !== "string" || password.length === 0) return;
+      try {
+        const account = await ctx.context.internalAdapter.findCredentialAccount(
+          signedIn.id,
+        );
+        const stored = account?.password;
+        if (typeof stored !== "string" || !needsPasswordRehash(stored)) return;
+        await ctx.context.internalAdapter.updatePassword(
+          signedIn.id,
+          await hashPasswordSecurely(password),
+        );
+      } catch (error) {
+        ctx.context.logger.error("rehash kata sandi gagal", {
+          message: error,
+        });
+      }
     }),
   },
   plugins: [
@@ -131,5 +212,11 @@ export const auth = betterAuth({
       },
       twoFactorCookieMaxAge: 600,
     }),
+    haveIBeenPwned({
+      enabled: process.env.HIBP_ENABLED !== "false",
+      customPasswordCompromisedMessage:
+        "Kata sandi ini pernah bocor di kebocoran data lain. Pakai kata sandi lain yang belum pernah dipakai di layanan mana pun.",
+    }),
+    ...(captchaPlugin === null ? [] : [captchaPlugin]),
   ],
 });

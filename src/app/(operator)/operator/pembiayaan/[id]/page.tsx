@@ -1,16 +1,24 @@
 import type { Metadata, Route } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/app/page-header";
 import { PURPOSE_LABELS, STATUS_META } from "@/components/financing/labels";
 import { ClaimFacility } from "@/components/operator/claim-facility";
-import { MfaRedirect } from "@/components/operator/mfa-redirect";
 import { ReviewActions } from "@/components/operator/review-actions";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { requireRole } from "@/data/dal";
 import { getReviewDetail } from "@/data/operator";
-import { requireOperatorMfa } from "@/data/two-factor";
+
+const DOCUMENT_LABELS: Readonly<Record<string, string>> = {
+  ktm: "Kartu mahasiswa",
+  selfie: "Foto wajah",
+  statement_signed: "Surat bertanda tangan",
+};
+
+import { getFacilityDocumentsOverview } from "@/data/documents";
 import type { EligibilityFactor } from "@/domain/financing/eligibility";
 import { formatIDR } from "@/lib/format/currency";
 import { formatInstantWib } from "@/lib/format/date";
@@ -79,11 +87,11 @@ export default async function OperatorReviewPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { mfaRequired } = await requireOperatorMfa();
-  if (mfaRequired) return <MfaRedirect />;
+  await requireRole("operator");
   const { id } = await params;
   const detail = await getReviewDetail(id);
   if (detail === null) notFound();
+  const documents = await getFacilityDocumentsOverview(id);
   const meta = STATUS_META[detail.status];
   const gpaText =
     detail.studentGpaHundredths === null
@@ -134,6 +142,64 @@ export default async function OperatorReviewPage({
               }
             />
           </dl>
+        </CardContent>
+      </Card>
+      <Card className="mt-4">
+        <CardContent className="flex items-center justify-between gap-3">
+          <CardTitle>Dokumen mahasiswa</CardTitle>
+          <Badge
+            variant={
+              documents.statementSignedAt === null ? "warning" : "success"
+            }
+          >
+            {documents.statementSignedAt === null
+              ? "Surat belum ditandatangani"
+              : "Surat ditandatangani"}
+          </Badge>
+        </CardContent>
+        <CardContent className="flex flex-col gap-3">
+          {documents.documents.length === 0 ? (
+            <p className="text-xs leading-5 text-foreground-muted">
+              Mahasiswa belum mengunggah dokumen apa pun. Minta melengkapi lewat
+              halaman profil sebelum meneruskan pengajuan.
+            </p>
+          ) : (
+            documents.documents.map((document) => (
+              <div key={document.id} className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-foreground">
+                    {DOCUMENT_LABELS[document.kind] ?? document.kind}
+                  </span>
+                  <a
+                    href={`/api/documents/${document.id}`}
+                    className="text-sm font-medium text-primary transition-colors duration-150 ease-out hover:text-primary-hover"
+                  >
+                    {document.mime === "application/pdf"
+                      ? "Unduh PDF"
+                      : "Buka penuh"}
+                  </a>
+                </div>
+                {document.mime.startsWith("image/") ? (
+                  <Image
+                    src={`/api/documents/${document.id}`}
+                    alt="Dokumen mahasiswa"
+                    width={720}
+                    height={405}
+                    unoptimized
+                    className="h-40 w-full rounded-lg border border-border bg-surface-raised object-cover"
+                  />
+                ) : null}
+              </div>
+            ))
+          )}
+          {documents.statementHash === null ? null : (
+            <p className="text-2xs text-foreground-subtle">
+              Kode verifikasi surat:{" "}
+              <span className="font-mono">
+                {documents.statementHash.slice(0, 16)}
+              </span>
+            </p>
+          )}
         </CardContent>
       </Card>
       <Card className="mt-4">

@@ -14,7 +14,9 @@
     "format": "biome format --write",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "totp:doctor": "node scripts/totp-doctor.mjs",
+    "db:migrate:postgres": "node scripts/postgres-migrate.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

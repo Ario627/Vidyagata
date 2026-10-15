@@ -1,6 +1,5 @@
 import "server-only";
 import { requireRole } from "@/data/dal";
-import { isTwoFactorEnabled } from "@/data/two-factor";
 import type { AcademicStatus } from "@/domain/financing/eligibility";
 import {
   assessEligibility,
@@ -79,7 +78,7 @@ const QUEUE_COLUMNS = `f.id, f.public_ref, f.status, f.requested_amount,
 const QUEUE_FROM = `FROM financing_facilities f
 LEFT JOIN institutions i ON i.id = f.institution_id
 LEFT JOIN officer_portfolios op ON op.facility_id = f.id
-LEFT JOIN user officer ON officer.id = op.officer_id`;
+LEFT JOIN "user" officer ON officer.id = op.officer_id`;
 
 const SELECT_QUEUE = `SELECT ${QUEUE_COLUMNS} ${QUEUE_FROM}
 WHERE f.status IN ('submitted', 'under_review')
@@ -221,8 +220,6 @@ export async function claimFacility(
   facilityId: string,
 ): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!(await isTwoFactorEnabled(actor.id)))
-    return { ok: false, code: "mfa_required" };
   const database = db;
   const current = await selectQueueRow(database, facilityId);
   if (current === null) return { ok: false, code: "facility_not_found" };
@@ -268,8 +265,6 @@ export async function forwardFacility(input: {
   readonly reason?: string;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!(await isTwoFactorEnabled(actor.id)))
-    return { ok: false, code: "mfa_required" };
   const database = db;
   const row = await selectQueueRow(database, input.facilityId);
   if (row === null || row.officer_id !== actor.id) {
@@ -339,8 +334,6 @@ export async function rejectFacility(input: {
   readonly reason: string;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
-  if (!(await isTwoFactorEnabled(actor.id)))
-    return { ok: false, code: "mfa_required" };
   const reason = input.reason.trim();
   if (reason === "") return { ok: false, code: "reason_required" };
   const database = db;

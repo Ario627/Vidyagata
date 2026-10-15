@@ -7,7 +7,7 @@ import {
   type PostgresClient,
 } from "./postgres";
 
-export type SqlValue = string | number | bigint | boolean | null;
+export type SqlValue = string | number | bigint | boolean | null | Uint8Array;
 
 export type SqlStatement = {
   get<T>(...params: SqlValue[]): Promise<T | undefined>;
@@ -78,7 +78,7 @@ function normalizeRows<T>(rows: unknown[]): T[] {
 
 function bindSqlite(
   params: readonly SqlValue[],
-): (string | number | bigint | null)[] {
+): (string | number | bigint | Uint8Array | null)[] {
   return params.map((value) =>
     typeof value === "boolean" ? (value ? 1 : 0) : value,
   );
@@ -174,11 +174,15 @@ async function createDb(): Promise<Db> {
   const isTest =
     process.env.NODE_ENV === "test" || process.env.VITEST !== undefined;
   if (isTest || url === undefined || url === "") {
-    if (process.env.VERCEL === "1") {
+    if (
+      process.env.VERCEL === "1" ||
+      process.env.RAILWAY_ENVIRONMENT !== undefined
+    ) {
       throw new Error(
-        "DATABASE_URL wajib diisi di Vercel. SQLite tidak bisa dipakai di serverless karena filesystem hanya-baca.",
+        "DATABASE_URL wajib diisi di platform deploy (Vercel/Railway). SQLite hanya untuk dev lokal karena filesystem serverless hanya-baca.",
       );
     }
+    const { applyDemoSeeds } = await import("./seed/demo");
     const { applyIdentitySeeds } = await import("./seed/identity");
     const { applyPlatformSeeds } = await import("./seed/platform");
     const { applyWorkSeeds } = await import("./seed/work");
@@ -187,6 +191,7 @@ async function createDb(): Promise<Db> {
     await applyPlatformSeeds(database);
     await applyIdentitySeeds(database);
     await applyWorkSeeds(database);
+    await applyDemoSeeds(database);
     return database;
   }
   const client = getPostgresClient();

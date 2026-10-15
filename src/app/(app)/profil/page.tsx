@@ -1,9 +1,12 @@
 import { ShieldCheck } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
+import { ProfileDocuments } from "@/components/account/profile-documents";
 import { PageHeader } from "@/components/app/page-header";
+import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { getMyDocuments, getMyStatement } from "@/data/documents";
 import { getMyStudentIdentity } from "@/data/students";
 import { cn } from "@/lib/utils";
 
@@ -116,11 +119,17 @@ async function IdentityCard() {
         <CardTitle>Identitas akademik</CardTitle>
       </CardContent>
       {identity === null ? (
-        <CardContent>
+        <CardContent className="flex flex-col items-start gap-3">
           <p className="text-xs leading-5 text-foreground-muted">
-            Profil akademikmu dibuat otomatis saat kamu mengajukan pembiayaan —
-            nama, kampus, semester, dan IPK ikut terisi dari sana.
+            Profil akademikmu belum terisi. Lengkapi dulu — datanya dipakai
+            untuk menilai kelayakan pembiayaan dan membuat surat pernyataan.
           </p>
+          <Link
+            href={"/profil/lengkapi" as Route}
+            className={cn(buttonVariants({ size: "md" }))}
+          >
+            Lengkapi profil
+          </Link>
         </CardContent>
       ) : (
         <CardContent>
@@ -157,9 +166,73 @@ async function IdentityCard() {
               label="Domisili"
               value={`${identity.profile.city}, ${identity.profile.province}`}
             />
+            {identity.profile.hobby === null ? null : (
+              <InfoRow label="Hobi" value={identity.profile.hobby} />
+            )}
           </dl>
+          {identity.profile.bio === null ? null : (
+            <p className="mt-3 text-sm leading-6 text-foreground-muted">
+              {identity.profile.bio}
+            </p>
+          )}
+          <div className="mt-4">
+            <Link
+              href={"/profil/lengkapi" as Route}
+              className={cn(
+                buttonVariants({ variant: "secondary", size: "sm" }),
+              )}
+            >
+              Perbarui profil
+            </Link>
+          </div>
         </CardContent>
       )}
+    </Card>
+  );
+}
+
+async function DocumentsCard() {
+  const [documents, statement, identity] = await Promise.all([
+    getMyDocuments(),
+    getMyStatement(),
+    getMyStudentIdentity(),
+  ]);
+  const statementSigned = statement !== null && statement.signedAt !== null;
+  const canUpload = identity !== null;
+  return (
+    <Card className="mt-6">
+      <CardContent>
+        <CardTitle>Dokumen & surat</CardTitle>
+      </CardContent>
+      {canUpload ? (
+        <CardContent>
+          <ProfileDocuments documents={documents} />
+        </CardContent>
+      ) : (
+        <CardContent>
+          <p className="text-xs leading-5 text-foreground-muted">
+            Lengkapi profil akademik dulu supaya bisa mengunggah dokumen.
+          </p>
+        </CardContent>
+      )}
+      <CardContent className="flex items-center justify-between gap-3 border-border border-t pt-4">
+        <span className="text-sm text-foreground">Surat pernyataan</span>
+        <Badge variant={statementSigned ? "success" : "warning"}>
+          {statement === null
+            ? "Belum dibuat"
+            : statementSigned
+              ? "Ditandatangani"
+              : "Belum ditandatangani"}
+        </Badge>
+      </CardContent>
+      <CardContent className="pt-0">
+        <Link
+          href={"/profil/surat-pernyataan" as Route}
+          className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
+        >
+          Buka surat pernyataan
+        </Link>
+      </CardContent>
     </Card>
   );
 }
@@ -173,6 +246,7 @@ export default function ProfilPage() {
         description="Identitas, keamanan, dan pengaturan datamu terkumpul di sini."
       />
       <IdentityCard />
+      <DocumentsCard />
       <SecurityCard />
       <DataRightsCard />
     </main>

@@ -19,6 +19,9 @@ export type StudentProfile = {
   readonly institutionId: string | null;
   readonly province: string;
   readonly city: string;
+  readonly addressLine: string | null;
+  readonly hobby: string | null;
+  readonly bio: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 };
@@ -33,6 +36,9 @@ export type StudentProfileInput = {
   readonly institutionId?: string | null;
   readonly province: string;
   readonly city: string;
+  readonly addressLine?: string | null;
+  readonly hobby?: string | null;
+  readonly bio?: string | null;
 };
 
 type StudentRow = {
@@ -47,6 +53,9 @@ type StudentRow = {
   institution_id: string | null;
   province: string;
   city: string;
+  address_line: string | null;
+  hobby: string | null;
+  bio: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -59,15 +68,16 @@ type AuditSnapshot = {
 };
 
 const STUDENT_COLUMNS = `id, user_id, full_name, nickname, date_of_birth, academic_status,
-  current_semester, gpa_hundredths, institution_id, province, city, created_at, updated_at`;
+  current_semester, gpa_hundredths, institution_id, province, city,
+  address_line, hobby, bio, created_at, updated_at`;
 
 const SELECT_BY_USER = `SELECT ${STUDENT_COLUMNS} FROM students WHERE user_id = ?`;
 
 const UPSERT_STUDENT = `INSERT INTO students (
   id, user_id, full_name, nickname, date_of_birth, academic_status,
   current_semester, gpa_hundredths, institution_id, province, city,
-  created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  address_line, hobby, bio, created_at, updated_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(user_id) DO UPDATE SET
   full_name = excluded.full_name,
   nickname = excluded.nickname,
@@ -77,7 +87,10 @@ ON CONFLICT(user_id) DO UPDATE SET
   gpa_hundredths = excluded.gpa_hundredths,
   institution_id = excluded.institution_id,
   province = excluded.province,
-  city = excluded.city`;
+  city = excluded.city,
+  address_line = excluded.address_line,
+  hobby = excluded.hobby,
+  bio = excluded.bio`;
 
 function toProfile(row: StudentRow): StudentProfile {
   const dateOfBirth = parsePlainDate(row.date_of_birth);
@@ -94,6 +107,9 @@ function toProfile(row: StudentRow): StudentProfile {
     institutionId: row.institution_id,
     province: row.province,
     city: row.city,
+    addressLine: row.address_line,
+    hobby: row.hobby,
+    bio: row.bio,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -134,8 +150,9 @@ type IdentityRow = StudentRow & { institution_name: string | null };
 
 const SELECT_IDENTITY_BY_USER = `SELECT s.id, s.user_id, s.full_name,
   s.nickname, s.date_of_birth, s.academic_status, s.current_semester,
-  s.gpa_hundredths, s.institution_id, s.province, s.city, s.created_at,
-  s.updated_at, i.name AS institution_name
+  s.gpa_hundredths, s.institution_id, s.province, s.city,
+  s.address_line, s.hobby, s.bio, s.created_at, s.updated_at,
+  i.name AS institution_name
 FROM students s
 LEFT JOIN institutions i ON i.id = s.institution_id
 WHERE s.user_id = ?`;
@@ -204,6 +221,9 @@ export async function saveStudentProfile(
         input.institutionId ?? null,
         input.province,
         input.city,
+        input.addressLine ?? null,
+        input.hobby ?? null,
+        input.bio ?? null,
         stamp,
         stamp,
       );

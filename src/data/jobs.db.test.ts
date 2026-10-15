@@ -16,15 +16,22 @@ afterAll(() => {
 describe("selectJobCatalog", () => {
   it("menyemai katalog aktif terurut dari yang terbaru", () => {
     return selectJobCatalog().then((catalog) => {
-      expect(catalog).toHaveLength(6);
+      expect(catalog).toHaveLength(30);
       const published = catalog.map((posting) => posting.publishedAt);
-      expect(published).toEqual([...published].sort().reverse());
-      const first = catalog[0];
-      expect(first?.title).toBe("Barista Part-time");
-      expect(first?.employerName).toBe("Kopi Rakyat Indonesia");
-      expect(first?.employerSector).toBe("Makanan dan minuman");
-      expect(first?.weeklyHours).toBe(16);
-      expect(first?.skills).toEqual([
+      for (let index = 1; index < published.length; index += 1) {
+        const previous = published[index - 1];
+        const current = published[index];
+        if (previous === null || previous === undefined) continue;
+        if (current === null || current === undefined) continue;
+        expect(previous >= current).toBe(true);
+      }
+      const barista = catalog.find(
+        (posting) => posting.title === "Barista Part-time",
+      );
+      expect(barista?.employerName).toBe("Kopi Rakyat Indonesia");
+      expect(barista?.employerSector).toBe("Makanan dan minuman");
+      expect(barista?.weeklyHours).toBe(16);
+      expect(barista?.skills).toEqual([
         "Kerja tim",
         "Pelayanan pelanggan",
         "Pengolahan kopi",
@@ -40,6 +47,8 @@ describe("selectJobCatalog", () => {
     expect(kopi.map((posting) => posting.title).sort()).toEqual([
       "Admin Media Sosial",
       "Barista Part-time",
+      "Barista Shift Sore",
+      "Penjaga Kios Malam",
     ]);
     const remote = catalog.filter((posting) =>
       matchesJobQuery(posting, tokenizeJobQuery("remote")),
@@ -48,8 +57,10 @@ describe("selectJobCatalog", () => {
     const data = catalog.filter((posting) =>
       matchesJobQuery(posting, tokenizeJobQuery("analisis data")),
     );
-    expect(data.map((posting) => posting.title)).toEqual([
+    expect(data.map((posting) => posting.title).sort()).toEqual([
+      "Analis Data Junior",
       "Asisten Riset Data",
+      "Verifikator Data Survei",
     ]);
   });
 
@@ -59,14 +70,14 @@ describe("selectJobCatalog", () => {
       .prepare("UPDATE job_postings SET status = 'paused' WHERE title = ?")
       .run("Barista Part-time");
     const catalog = await selectJobCatalog();
-    expect(catalog).toHaveLength(5);
+    expect(catalog).toHaveLength(29);
     expect(catalog.map((posting) => posting.title)).not.toContain(
       "Barista Part-time",
     );
     database
       .prepare("UPDATE job_postings SET status = 'active' WHERE title = ?")
       .run("Barista Part-time");
-    expect(await selectJobCatalog()).toHaveLength(6);
+    expect(await selectJobCatalog()).toHaveLength(30);
   });
 });
 

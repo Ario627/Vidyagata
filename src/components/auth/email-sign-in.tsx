@@ -1,16 +1,20 @@
 "use client";
 
 import type { Route } from "next";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
 import { resolveLandingAction } from "@/app/(auth)/masuk/landing";
+import { TurnstileWidget } from "@/components/security/turnstile-widget";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
 import { authClient } from "@/lib/auth-client";
+import { CAPTCHA_ACTION } from "@/lib/captcha-action";
 import { EmailAddress } from "@/schemas/onboarding";
 
 type EmailSignInProps = {
   readonly nextPath: string | null;
+  readonly captchaSiteKey: string | null;
 };
 
 type AuthIssue = {
@@ -28,12 +32,15 @@ function signInIssueMessage(issue: AuthIssue): string {
       return "Email belum diverifikasi. Selesaikan verifikasi lewat email yang kami kirim saat pendaftaran.";
     case "TOO_MANY_REQUESTS":
       return "Terlalu banyak percobaan. Tunggu satu menit lalu coba lagi.";
+    case "VERIFICATION_FAILED":
+    case "MISSING_RESPONSE":
+      return "Verifikasi keamanan gagal. Selesaikan ulang verifikasi di bawah lalu coba lagi.";
     default:
       return issue.message ?? GENERIC_MESSAGE;
   }
 }
 
-function EmailSignIn({ nextPath }: EmailSignInProps) {
+function EmailSignIn({ nextPath, captchaSiteKey }: EmailSignInProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,6 +48,11 @@ function EmailSignIn({ nextPath }: EmailSignInProps) {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [formIssue, setFormIssue] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
+
+  const captchaRequired = captchaSiteKey !== null;
+  const captchaBlocked = captchaRequired && captchaToken === null;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,15 +65,25 @@ function EmailSignIn({ nextPath }: EmailSignInProps) {
     );
     setPasswordError(password.length === 0 ? "Kata sandi wajib diisi" : null);
     if (!emailParsed.success || password.length === 0) return;
+    if (captchaBlocked) {
+      setFormIssue("Selesaikan verifikasi keamanan dulu, lalu coba lagi.");
+      return;
+    }
     setFormIssue(null);
     setPending(true);
-    const { data, error } = await authClient.signIn.email({
-      email: emailParsed.data,
-      password,
-    });
+    const { data, error } = await authClient.signIn.email(
+      {
+        email: emailParsed.data,
+        password,
+      },
+      captchaToken === null
+        ? undefined
+        : { headers: { "x-captcha-response": captchaToken } },
+    );
     if (error) {
       setFormIssue(signInIssueMessage(error));
       setPending(false);
+      if (captchaRequired) setCaptchaReset((value) => value + 1);
       return;
     }
     if (data && "twoFactorRedirect" in data) {
@@ -115,12 +137,41 @@ function EmailSignIn({ nextPath }: EmailSignInProps) {
         }}
         error={passwordError ?? undefined}
       />
+      <div className="-mt-2 flex justify-end">
+        <Link
+          href={"/lupa-akses" as Route}
+          className="text-xs font-medium text-primary transition-colors duration-150 ease-out hover:text-primary-hover"
+        >
+          Lupa kata sandi?
+        </Link>
+      </div>
       {formIssue === null ? null : (
         <p role="alert" className="text-sm text-danger">
           {formIssue}
         </p>
       )}
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
+      {captchaSiteKey === null ? null : (
+        <div className="flex flex-col gap-2">
+          <TurnstileWidget
+            siteKey={captchaSiteKey}
+            action={CAPTCHA_ACTION}
+            resetSignal={captchaReset}
+            onToken={setCaptchaToken}
+          />
+          {captchaToken === null ? (
+            <p className="text-2xs leading-4 text-foreground-subtle">
+              Menunggu verifikasi keamanan selesai — kalau kotaknya tidak
+              muncul, muat ulang halaman ini.
+            </p>
+          ) : null}
+        </div>
+      )}
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full"
+        disabled={pending || captchaBlocked}
+      >
         {pending ? "Masuk..." : "Masuk"}
       </Button>
     </form>

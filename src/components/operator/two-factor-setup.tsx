@@ -47,7 +47,7 @@ function enableIssueMessage(issue: AuthIssue): string {
 function verifyIssueMessage(issue: AuthIssue): string {
   switch (issue.code) {
     case "INVALID_CODE":
-      return "Kode tidak cocok. Pastikan jam perangkatmu akurat lalu coba lagi.";
+      return "Kode tidak cocok. Hapus entri Vidyagata lama di aplikasi autentikatormu, pastikan jam perangkat akurat, lalu coba lagi.";
     case "TOTP_CODE_ALREADY_USED":
       return "Kode ini sudah dipakai. Tunggu kode berikutnya di aplikasi autentikatormu lalu coba lagi.";
     case "ACCOUNT_TEMPORARILY_LOCKED":
@@ -212,6 +212,10 @@ function TwoFactorSetup({
         <p className="text-sm font-semibold text-foreground">Pindai kode QR</p>
         <p className="text-sm leading-6 text-foreground-muted">
           Buka aplikasi autentikator, tambah akun baru, lalu pindai kode ini.
+        </p>
+        <p className="text-2xs leading-4 text-foreground-subtle">
+          Kode QR berubah setiap kali kamu memulai pengaturan ulang — hapus
+          entri Vidyagata lama di aplikasi sebelum memindai yang baru.
         </p>
         <div className="w-fit rounded-lg border border-border bg-white p-3">
           <QRCodeSVG

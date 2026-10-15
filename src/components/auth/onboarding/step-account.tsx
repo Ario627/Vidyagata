@@ -2,10 +2,12 @@
 
 import { type FormEvent, useState } from "react";
 import { AuthHelp } from "@/components/auth/auth-help";
+import { TurnstileWidget } from "@/components/security/turnstile-widget";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
 import type { PlainDate } from "@/domain/time/plain-date";
 import { authClient } from "@/lib/auth-client";
+import { CAPTCHA_ACTION } from "@/lib/captcha-action";
 import {
   EmailAddress,
   PASSWORD_MIN_LENGTH,
@@ -22,6 +24,7 @@ type AccountDraft = {
 
 type StepAccountProps = {
   readonly birthdate: PlainDate;
+  readonly captchaSiteKey: string | null;
   readonly onNext: (draft: AccountDraft) => void;
 };
 
@@ -47,14 +50,19 @@ function signUpIssueMessage(issue: AuthIssue): string {
       return "Username ini sudah dipakai. Coba yang lain.";
     case "UNDERAGE":
       return "Pendaftaran untuk usia di bawah 18 tahun belum tersedia.";
+    case "PASSWORD_COMPROMISED":
+      return "Kata sandi ini pernah bocor di kebocoran data lain. Pakai kata sandi lain yang belum pernah kamu pakai di layanan mana pun.";
     case "TOO_MANY_REQUESTS":
       return "Terlalu banyak percobaan dari jaringan ini. Tunggu sebentar.";
+    case "VERIFICATION_FAILED":
+    case "MISSING_RESPONSE":
+      return "Verifikasi keamanan gagal. Selesaikan ulang verifikasi di bawah lalu coba lagi.";
     default:
       return issue.message ?? GENERIC_MESSAGE;
   }
 }
 
-function StepAccount({ birthdate, onNext }: StepAccountProps) {
+function StepAccount({ birthdate, captchaSiteKey, onNext }: StepAccountProps) {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -64,6 +72,11 @@ function StepAccount({ birthdate, onNext }: StepAccountProps) {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [formIssue, setFormIssue] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaReset, setCaptchaReset] = useState(0);
+
+  const captchaRequired = captchaSiteKey !== null;
+  const captchaBlocked = captchaRequired && captchaToken === null;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -81,18 +94,28 @@ function StepAccount({ birthdate, onNext }: StepAccountProps) {
     ) {
       return;
     }
+    if (captchaBlocked) {
+      setFormIssue("Selesaikan verifikasi keamanan dulu, lalu coba lagi.");
+      return;
+    }
     setFormIssue(null);
     setPending(true);
-    const { error } = await authClient.signUp.email({
-      email: emailParsed.data,
-      password: passwordParsed.data,
-      username: usernameParsed.data,
-      name: usernameParsed.data,
-      birthdate,
-    });
+    const { error } = await authClient.signUp.email(
+      {
+        email: emailParsed.data,
+        password: passwordParsed.data,
+        username: usernameParsed.data,
+        name: usernameParsed.data,
+        birthdate,
+      },
+      captchaToken === null
+        ? undefined
+        : { headers: { "x-captcha-response": captchaToken } },
+    );
     if (error) {
       setFormIssue(signUpIssueMessage(error));
       setPending(false);
+      if (captchaRequired) setCaptchaReset((value) => value + 1);
       return;
     }
     onNext({
@@ -187,7 +210,28 @@ function StepAccount({ birthdate, onNext }: StepAccountProps) {
           {formIssue}
         </p>
       )}
-      <Button type="submit" size="lg" className="w-full" disabled={pending}>
+      {captchaSiteKey === null ? null : (
+        <div className="flex flex-col gap-2">
+          <TurnstileWidget
+            siteKey={captchaSiteKey}
+            action={CAPTCHA_ACTION}
+            resetSignal={captchaReset}
+            onToken={setCaptchaToken}
+          />
+          {captchaToken === null ? (
+            <p className="text-2xs leading-4 text-foreground-subtle">
+              Menunggu verifikasi keamanan selesai — kalau kotaknya tidak
+              muncul, muat ulang halaman ini.
+            </p>
+          ) : null}
+        </div>
+      )}
+      <Button
+        type="submit"
+        size="lg"
+        className="w-full"
+        disabled={pending || captchaBlocked}
+      >
         {pending ? "Membuat akun..." : "Buat akun"}
       </Button>
     </form>

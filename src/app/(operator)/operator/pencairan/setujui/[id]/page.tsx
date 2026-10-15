@@ -4,13 +4,12 @@ import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/app/page-header";
 import { formatRateBp, STATUS_META } from "@/components/financing/labels";
 import { FourEyesExplainer } from "@/components/operator/four-eyes-explainer";
-import { MfaRedirect } from "@/components/operator/mfa-redirect";
 import { CheckerPanel } from "@/components/operator/pencairan-checker-panel";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { requireRole } from "@/data/dal";
 import { getPencairanDetail, type PencairanDetail } from "@/data/disbursements";
-import { requireOperatorMfa } from "@/data/two-factor";
 import { formatIDR } from "@/lib/format/currency";
 import { cn } from "@/lib/utils";
 
@@ -45,8 +44,7 @@ export default async function PencairanDecidePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { mfaRequired } = await requireOperatorMfa();
-  if (mfaRequired) return <MfaRedirect />;
+  await requireRole("operator");
   const { id } = await params;
   const detail = await getPencairanDetail(id);
   if (detail === null) notFound();

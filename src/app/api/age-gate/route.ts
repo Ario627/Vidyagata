@@ -25,7 +25,6 @@ function normalizeOrigin(value: string | undefined): string | null {
 function isSameOrigin(request: Request): boolean {
   const originHeader = request.headers.get("origin");
 
-
   if (originHeader === null) return true;
 
   const origin = normalizeOrigin(originHeader);
@@ -34,17 +33,23 @@ function isSameOrigin(request: Request): boolean {
   const allowedOrigins = [
     process.env.APP_ORIGIN,
     process.env.URL,
+    process.env.BETTER_AUTH_URL,
     ...(process.env.NODE_ENV === "development"
-    ? ["http://localhost:3000"]
-    : []),
+      ? ["http://localhost:3000"]
+      : []),
   ]
-  .map(normalizeOrigin)
-  .filter((value): value is string => value !== null);
+    .map(normalizeOrigin)
+    .filter((value): value is string => value !== null);
 
+  if (allowedOrigins.includes(origin)) return true;
 
-  if (allowedOrigins.length === 0) return false;
-
-  return allowedOrigins.includes(origin);
+  const host = request.headers.get("host");
+  if (host === null) return false;
+  try {
+    return new URL(origin).host === host;
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(request: Request) {

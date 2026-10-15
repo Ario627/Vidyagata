@@ -1,5 +1,6 @@
 import type { Metadata, Route } from "next";
 import Link from "next/link";
+import { AutoRefresh } from "@/components/app/auto-refresh";
 import { PageHeader } from "@/components/app/page-header";
 import { INSTALLMENT_STATUS_META } from "@/components/financing/labels";
 import { RepaymentExplainer } from "@/components/financing/repayment-explainer";
@@ -46,6 +47,7 @@ export default async function TagihanPage() {
   if (tagihan === null) {
     return (
       <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
+        <AutoRefresh />
         <PageHeader
           eyebrow="VidyaFund"
           title="Tagihan"
@@ -75,6 +77,7 @@ export default async function TagihanPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
+      <AutoRefresh />
       <PageHeader
         eyebrow="VidyaFund"
         title="Tagihan"

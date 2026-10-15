@@ -3,7 +3,9 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { OnboardingFlow } from "@/components/auth/onboarding/onboarding-flow";
+import { listInstitutionOptions } from "@/data/institutions";
 import { hasActiveAgeBan } from "@/lib/age-ban";
+import { captchaSettings } from "@/lib/captcha";
 import { getCurrentUser } from "@/lib/session";
 
 export const metadata: Metadata = {
@@ -16,12 +18,39 @@ export const instant = false;
 
 export default async function DaftarPage() {
   const user = await getCurrentUser();
-  if (user !== null) {
-    redirect("/dashboard");
-  }
   if (await hasActiveAgeBan(await headers())) {
     redirect("/daftar/usia-belum-cukup" as Route);
   }
+  if (user !== null) {
+    return (
+      <div className="flex flex-col gap-6">
+        <header>
+          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+            Kamu sudah masuk
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-foreground-muted">
+            Akunmu sudah aktif. Lanjutkan melengkapi profil dan dokumen dari
+            halaman profil, atau langsung ke beranda.
+          </p>
+        </header>
+        <div className="flex flex-col gap-3">
+          <Link
+            href={"/profil/lengkapi" as Route}
+            className="text-sm font-medium text-primary transition-colors duration-150 ease-out hover:text-primary-hover"
+          >
+            Lengkapi profil & dokumen
+          </Link>
+          <Link
+            href={"/dashboard" as Route}
+            className="text-sm font-medium text-primary transition-colors duration-150 ease-out hover:text-primary-hover"
+          >
+            Ke beranda
+          </Link>
+        </div>
+      </div>
+    );
+  }
+  const institutions = await listInstitutionOptions();
 
   return (
     <div className="flex flex-col gap-6">
@@ -34,7 +63,10 @@ export default async function DaftarPage() {
           bisa melihat sedang di tahap mana.
         </p>
       </header>
-      <OnboardingFlow />
+      <OnboardingFlow
+        captchaSiteKey={captchaSettings().siteKey}
+        institutions={institutions}
+      />
       <p className="text-sm text-foreground-muted">
         Sudah punya akun?{" "}
         <Link

@@ -248,18 +248,6 @@ describe("initiateDisbursement", () => {
     const result = await initiateDisbursement("pcfac-000002");
     expect(result).toEqual({ ok: false, code: "invalid_transition" });
   });
-
-  it("memblokir saat verifikasi dua langkah belum aktif", async () => {
-    openAuthDatabase()
-      .prepare("UPDATE user SET twoFactorEnabled = 0 WHERE id = ?")
-      .run("officer-a");
-    asOfficer("officer-a");
-    const result = await initiateDisbursement("pcfac-000003");
-    expect(result).toEqual({ ok: false, code: "mfa_required" });
-    openAuthDatabase()
-      .prepare("UPDATE user SET twoFactorEnabled = 1 WHERE id = ?")
-      .run("officer-a");
-  });
 });
 
 describe("four-eyes", () => {

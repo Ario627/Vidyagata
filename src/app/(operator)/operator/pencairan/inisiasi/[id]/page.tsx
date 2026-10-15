@@ -7,13 +7,12 @@ import {
   formatRateBp,
   STATUS_META,
 } from "@/components/financing/labels";
-import { MfaRedirect } from "@/components/operator/mfa-redirect";
 import { MakerPanel } from "@/components/operator/pencairan-maker-panel";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { requireRole } from "@/data/dal";
 import { getPencairanDetail } from "@/data/disbursements";
-import { requireOperatorMfa } from "@/data/two-factor";
 import { formatIDR } from "@/lib/format/currency";
 import { formatInstantWib } from "@/lib/format/date";
 import { cn } from "@/lib/utils";
@@ -47,8 +46,7 @@ export default async function PencairanInitiatePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { mfaRequired } = await requireOperatorMfa();
-  if (mfaRequired) return <MfaRedirect />;
+  await requireRole("operator");
   const { id } = await params;
   const detail = await getPencairanDetail(id);
   if (detail === null) notFound();

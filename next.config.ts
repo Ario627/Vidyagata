@@ -15,7 +15,7 @@ const securityHeaders = [
   {
     key: "Content-Security-Policy",
     value:
-      "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+      "object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; connect-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com",
   },
   {
     key: "Permissions-Policy",

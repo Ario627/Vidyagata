@@ -59,10 +59,10 @@ export default async function AjukanPembiayaanPage() {
     return (
       <Notice
         title="Lengkapi profil dulu"
-        description="Kami butuh nama lengkap dan data akademikmu sebelum pengajuan bisa dimulai."
+        description="Kami butuh nama lengkap, data kampus, dan domisilimu sebelum pengajuan bisa dimulai — prosesnya singkat dan cuma sekali."
         action={
           <Link
-            href={"/profil" as Route}
+            href={"/profil/lengkapi" as Route}
             className={cn(buttonVariants({ size: "md" }))}
           >
             Lengkapi profil
