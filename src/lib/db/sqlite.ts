@@ -2,10 +2,11 @@ import "server-only";
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { DOCUMENTS_SCHEMA } from "./schema/documents";
+import { DOCUMENTS_SCHEMA, migrateDocumentKinds } from "./schema/documents";
 import { FINANCING_SCHEMA, migrateFinancingIndexes } from "./schema/financing";
 import { IDENTITY_SCHEMA } from "./schema/identity";
 import { MONEY_SCHEMA } from "./schema/money";
+import { PAYMENTS_SCHEMA } from "./schema/payments";
 import { PLATFORM_SCHEMA } from "./schema/platform";
 import { REGULATORY_SCHEMA } from "./schema/regulatory";
 import { SEQUENCE_SCHEMA } from "./schema/sequences";
@@ -129,6 +130,11 @@ const ADDITIVE_COLUMNS: readonly AdditiveColumn[] = [
     column: "signature_image",
     definition: "TEXT",
   },
+  {
+    table: "financing_facilities",
+    column: "purpose_note",
+    definition: "TEXT",
+  },
 ];
 
 function ensureAdditiveColumns(database: DatabaseSync): void {
@@ -179,6 +185,8 @@ export function openAuthDatabase(): DatabaseSync {
   execWithRetry(database, SEQUENCE_SCHEMA);
   execWithRetry(database, WORK_SCHEMA);
   execWithRetry(database, DOCUMENTS_SCHEMA);
+  migrateDocumentKinds(database);
+  execWithRetry(database, PAYMENTS_SCHEMA);
   ensureAdditiveColumns(database);
   instance = database;
   return database;

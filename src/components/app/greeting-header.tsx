@@ -1,3 +1,6 @@
+import { Bell } from "lucide-react";
+import type { Route } from "next";
+import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -29,11 +32,13 @@ function HeaderSearch() {
 type GreetingHeaderProps = ComponentProps<"header"> & {
   title: string;
   avatar: ReactNode;
+  notificationDot?: boolean;
 };
 
 function GreetingHeader({
   title,
   avatar,
+  notificationDot = false,
   children,
   className,
   ...props
@@ -46,6 +51,19 @@ function GreetingHeader({
     >
       <div className="flex items-center gap-3 pt-3">
         <HeaderSearch />
+        <Link
+          href={"/notifikasi" as Route}
+          aria-label="Notifikasi"
+          className="relative grid size-11 shrink-0 place-items-center rounded-full bg-surface/15 text-primary-foreground transition-opacity duration-150 ease-out hover:opacity-80 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-foreground"
+        >
+          <Bell aria-hidden="true" className="size-5" />
+          {notificationDot ? (
+            <span
+              aria-hidden="true"
+              className="absolute top-2.5 right-2.5 size-2.5 rounded-full bg-danger-600 ring-2 ring-surface"
+            />
+          ) : null}
+        </Link>
         {avatar}
       </div>
       <h1 className="mt-4 text-xl font-semibold text-primary-foreground">

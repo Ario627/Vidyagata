@@ -5,6 +5,7 @@ const LINKS: readonly { readonly href: Route; readonly label: string }[] = [
   { href: "/operator" as Route, label: "Ringkasan" },
   { href: "/operator/antrian" as Route, label: "Antrian" },
   { href: "/operator/pencairan" as Route, label: "Pencairan" },
+  { href: "/operator/pembayaran" as Route, label: "Pembayaran" },
   { href: "/operator/keamanan" as Route, label: "Keamanan" },
   { href: "/operator/profil" as Route, label: "Profil" },
 ];

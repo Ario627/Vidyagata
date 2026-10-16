@@ -220,10 +220,52 @@
 @media print {
   @page {
     size: A4;
-    margin: 16mm 18mm;
+    margin: 18mm 20mm;
+  }
+
+  html {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   body {
     background: #ffffff;
+  }
+
+  .statement-sheet {
+    font-size: 10.5pt;
+    line-height: 1.55;
+    color: #14212b;
+  }
+
+  .statement-sheet p,
+  .statement-sheet li,
+  .statement-sheet dd,
+  .statement-sheet dt,
+  .statement-sheet span {
+    font-size: 10.5pt;
+    line-height: 1.55;
+  }
+
+  .statement-sheet h1 {
+    font-size: 12.5pt;
+    line-height: 1.4;
+  }
+
+  .statement-sheet .statement-fine {
+    font-size: 8pt;
+    line-height: 1.45;
+  }
+
+  .statement-sheet header,
+  .statement-sheet li,
+  .statement-sheet footer,
+  .statement-sheet .statement-signature {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .statement-sheet {
+    break-inside: auto;
   }
 }

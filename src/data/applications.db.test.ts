@@ -56,6 +56,23 @@ function insertPosting(id: string, title: string, status: string) {
     .run(id, title, status, status === "active" ? STAMP : null, STAMP, STAMP);
 }
 
+function insertCv(studentId: string) {
+  openAuthDatabase()
+    .prepare(
+      `INSERT INTO student_documents (
+        id, student_id, kind, mime, byte_size, sha256, data, created_at, updated_at
+      ) VALUES (?, ?, 'cv', 'application/pdf', 4, ?, ?, ?, ?)`,
+    )
+    .run(
+      `cv-${studentId}`,
+      studentId,
+      "a".repeat(64),
+      new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+      STAMP,
+      STAMP,
+    );
+}
+
 beforeAll(() => {
   const database = openAuthDatabase();
   database
@@ -68,6 +85,7 @@ beforeAll(() => {
   insertUser("app-student-user-2", "Mahasiswa Dua");
   insertStudent("app-student-1", "app-student-user-1");
   insertStudent("app-student-2", "app-student-user-2");
+  insertCv("app-student-1");
   insertPosting(POSTING_ACTIVE, "Barista Uji", "active");
   insertPosting(POSTING_DRAFT, "Barista Draf", "draft");
 });
@@ -110,6 +128,12 @@ describe("applyToJob", () => {
     session.userId = "app-student-user-1";
     const result = await applyToJob({ postingId: POSTING_ACTIVE });
     expect(result).toEqual({ ok: false, code: "already_applied" });
+  });
+
+  it("menolak lamaran tanpa CV terunggah", async () => {
+    session.userId = "app-student-user-2";
+    const result = await applyToJob({ postingId: POSTING_ACTIVE });
+    expect(result).toEqual({ ok: false, code: "cv_required" });
   });
 
   it("menolak lowongan yang belum dibuka", async () => {

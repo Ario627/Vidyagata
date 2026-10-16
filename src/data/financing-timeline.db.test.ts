@@ -68,6 +68,22 @@ beforeAll(async () => {
     city: "Depok",
   });
   await recordConsent({ key: "data_processing", grantedVia: "checkbox" });
+  const student = database
+    .prepare("SELECT id FROM students WHERE user_id = ?")
+    .get(session.userId) as { id: string };
+  database
+    .prepare(
+      `INSERT INTO student_documents (
+        id, student_id, kind, mime, byte_size, sha256, data, created_at, updated_at
+      ) VALUES ('doc-timeline-proof', ?, 'purpose_proof', 'application/pdf', 4, ?, ?, ?, ?)`,
+    )
+    .run(
+      student.id,
+      "b".repeat(64),
+      new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+      stamp,
+      stamp,
+    );
 });
 
 afterAll(() => {
@@ -80,6 +96,8 @@ describe("getMyFacilityTimeline", () => {
       institutionId: INSTITUTION_ID,
       requestedAmount: rupiah(4_000_000),
       academicPurpose: "tuition",
+      purposeNote:
+        "Dana dipakai untuk melunasi UKT semester berjalan sesuai tagihan kampus.",
     });
     await submitMyFacility(draft.id);
     const detail = await getMyFacilityTimeline(draft.id);

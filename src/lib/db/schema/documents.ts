@@ -1,7 +1,11 @@
+import type { DatabaseSync } from "node:sqlite";
+
 export const STUDENT_DOCUMENT_KINDS = [
   "ktm",
   "selfie",
   "statement_signed",
+  "cv",
+  "purpose_proof",
 ] as const;
 
 export const STUDENT_DOCUMENT_MIME = [
@@ -12,11 +16,15 @@ export const STUDENT_DOCUMENT_MIME = [
 
 export const MAX_DOCUMENT_BYTES = 4 * 1024 * 1024;
 
-export const DOCUMENTS_SCHEMA = `
+const DOCUMENT_KIND_CHECK = STUDENT_DOCUMENT_KINDS.map(
+  (kind) => `'${kind}'`,
+).join(", ");
+
+const STUDENT_DOCUMENTS_TABLE = `
 CREATE TABLE IF NOT EXISTS student_documents (
   id TEXT PRIMARY KEY,
   student_id TEXT NOT NULL REFERENCES students(id),
-  kind TEXT NOT NULL CHECK (kind IN ('ktm', 'selfie', 'statement_signed')),
+  kind TEXT NOT NULL CHECK (kind IN (${DOCUMENT_KIND_CHECK})),
   mime TEXT NOT NULL CHECK (mime IN ('image/jpeg', 'image/png', 'application/pdf')),
   byte_size INTEGER NOT NULL CHECK (byte_size > 0 AND byte_size <= 4194304),
   sha256 TEXT NOT NULL CHECK (length(sha256) = 64),
@@ -27,7 +35,9 @@ CREATE TABLE IF NOT EXISTS student_documents (
 );
 CREATE INDEX IF NOT EXISTS idx_student_documents_student
   ON student_documents (student_id, kind);
+`;
 
+const STATEMENT_SIGNATURES = `
 CREATE TABLE IF NOT EXISTS student_statement_signatures (
   id TEXT PRIMARY KEY,
   student_id TEXT NOT NULL REFERENCES students(id),
@@ -55,3 +65,33 @@ BEGIN
   SELECT RAISE(ABORT, 'student_statement_signatures_immutable');
 END;
 `;
+
+export const DOCUMENTS_SCHEMA = `${STUDENT_DOCUMENTS_TABLE}\n${STATEMENT_SIGNATURES}`;
+
+export function migrateDocumentKinds(database: DatabaseSync): void {
+  const row = database
+    .prepare(
+      "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'student_documents'",
+    )
+    .get() as { sql: string } | undefined;
+  if (row === undefined) return;
+  if (row.sql.includes("'purpose_proof'")) return;
+  database.exec("BEGIN IMMEDIATE");
+  try {
+    database.exec(
+      "ALTER TABLE student_documents RENAME TO student_documents_legacy",
+    );
+    database.exec("DROP INDEX IF EXISTS idx_student_documents_student");
+    database.exec(STUDENT_DOCUMENTS_TABLE);
+    database.exec(`INSERT INTO student_documents (
+      id, student_id, kind, mime, byte_size, sha256, data, created_at, updated_at
+    )
+    SELECT id, student_id, kind, mime, byte_size, sha256, data, created_at, updated_at
+    FROM student_documents_legacy`);
+    database.exec("DROP TABLE student_documents_legacy");
+    database.exec("COMMIT");
+  } catch (error) {
+    database.exec("ROLLBACK");
+    throw error;
+  }
+}

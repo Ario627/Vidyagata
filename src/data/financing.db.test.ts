@@ -63,6 +63,7 @@ beforeAll(() => {
   );
   insertUser.run("user-1", "Sari Dewanti", "sari@example.com", stamp, stamp);
   insertUser.run("user-2", "Budi Santoso", "budi@example.com", stamp, stamp);
+  insertUser.run("user-3", "Tuti Gerbang", "tuti@example.com", stamp, stamp);
   database
     .prepare(
       `INSERT INTO institutions (id, name, slug, type, city, province, verification_method, partnership_status, created_at, updated_at)
@@ -70,6 +71,23 @@ beforeAll(() => {
     )
     .run(INSTITUTION_ID, stamp, stamp);
 });
+
+function insertProof(studentId: string) {
+  openAuthDatabase()
+    .prepare(
+      `INSERT INTO student_documents (
+        id, student_id, kind, mime, byte_size, sha256, data, created_at, updated_at
+      ) VALUES (?, ?, 'purpose_proof', 'application/pdf', 4, ?, ?, ?, ?)`,
+    )
+    .run(
+      `proof-${studentId}`,
+      studentId,
+      "c".repeat(64),
+      new Uint8Array([0x25, 0x50, 0x44, 0x46]),
+      "2026-01-01T00:00:00.000Z",
+      "2026-01-01T00:00:00.000Z",
+    );
+}
 
 afterAll(() => {
   rmSync(directory, { recursive: true, force: true });
@@ -89,6 +107,7 @@ describe("profil mahasiswa", () => {
     const rows = auditRows(saved.id);
     expect(rows.map((row) => row.action)).toContain("student.profile_saved");
     expect(rows.map((row) => row.action)).toContain("student.gpa_updated");
+    insertProof(saved.id);
   });
 
   it("memperbarui profil tanpa membuat baris kedua", async () => {
@@ -123,12 +142,39 @@ describe("draft dan submit", () => {
     const second = await saveMyDraft({
       requestedAmount: rupiah(5_000_000),
       academicPurpose: "tuition",
+      purposeNote:
+        "Dana dipakai untuk melunasi UKT semester lima sesuai tagihan kampus.",
     });
     expect(second.id).toBe(first.id);
     expect(second.publicRef).toBe(first.publicRef);
     expect(second.institutionId).toBe(INSTITUTION_ID);
     expect(second.requestedAmount).toBe(5_000_000);
     expect(second.academicPurpose).toBe("tuition");
+    expect(second.purposeNote).toContain("UKT semester lima");
+  });
+
+  it("menolak submit tanpa catatan penggunaan dana", async () => {
+    session.userId = "user-3";
+    await saveStudentProfile({ ...STUDENT_PROFILE, fullName: "Tuti Gerbang" });
+    const draft = await saveMyDraft({
+      institutionId: INSTITUTION_ID,
+      requestedAmount: rupiah(2_000_000),
+      academicPurpose: "living_cost",
+    });
+    await expect(submitMyFacility(draft.id)).rejects.toThrow(
+      "purpose_note_required",
+    );
+    session.userId = "user-1";
+  });
+
+  it("menolak submit tanpa bukti penggunaan dana", async () => {
+    session.userId = "user-3";
+    const draft = await saveMyDraft({
+      purposeNote:
+        "Dana dipakai untuk biaya kos enam bulan sesuai perjanjian sewa terlampir.",
+    });
+    await expect(submitMyFacility(draft.id)).rejects.toThrow("proof_required");
+    session.userId = "user-1";
   });
 
   it("menolak submit tanpa persetujuan aktif", async () => {
@@ -158,6 +204,8 @@ describe("draft dan submit", () => {
     const filled = await saveMyDraft({
       requestedAmount: rupiah(3_000_000),
       academicPurpose: "living_cost",
+      purposeNote:
+        "Dana dipakai untuk biaya kos dan makan enam bulan sesuai perjanjian sewa.",
     });
     expect(filled.id).toBe(draft.id);
     await expect(submitMyFacility(filled.id)).rejects.toThrow(

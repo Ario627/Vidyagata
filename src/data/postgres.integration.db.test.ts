@@ -191,8 +191,17 @@ describePg("Postgres: alur pembiayaan", () => {
     const filled = await saveMyDraft({
       requestedAmount: 5_000_000 as never,
       academicPurpose: "tuition",
+      purposeNote:
+        "Dana dipakai untuk melunasi UKT sesuai tagihan kampus yang dilampirkan.",
     });
     expect(filled.id).toBe(draft.id);
+    await expect(submitMyFacility(filled.id)).rejects.toThrow("proof_required");
+    const { saveStudentDocument } = await import("@/data/documents");
+    const proof = await saveStudentDocument({
+      kind: "purpose_proof",
+      bytes: new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34]),
+    });
+    expect(proof.ok).toBe(true);
     await expect(submitMyFacility(filled.id)).rejects.toThrow(
       "consent_required",
     );

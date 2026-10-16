@@ -12,6 +12,7 @@ import {
   LOCATION_TYPE_LABELS,
 } from "@/components/work/labels";
 import { getMyApplicationForPosting } from "@/data/applications";
+import { getMyDocuments } from "@/data/documents";
 import { getJobPostingDetail } from "@/data/jobs";
 import { formatInstantWib } from "@/lib/format/date";
 import { requireUser } from "@/lib/session";
@@ -52,6 +53,9 @@ export default async function JobDetailPage({
   const job = await getJobPostingDetail(jobId);
   if (job === null) notFound();
   const existingApplication = await getMyApplicationForPosting(jobId);
+  const documents = await getMyDocuments();
+  const cvDocument =
+    documents.find((document) => document.kind === "cv") ?? null;
 
   return (
     <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
@@ -124,6 +128,7 @@ export default async function JobDetailPage({
         postingId={job.id}
         postingTitle={job.title}
         existing={existingApplication}
+        cvDocument={cvDocument}
       />
       <Link
         href={"/kerja" as Route}

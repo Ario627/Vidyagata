@@ -16,6 +16,7 @@ import { newId } from "@/lib/id";
 import { getCurrentUser } from "@/lib/session";
 import { appendAudit, prepareAudit } from "./audit";
 import { hasActiveConsent } from "./consents";
+import { hasStudentDocument } from "./documents";
 import { nextSequenceValue } from "./sequences";
 import { getMyStudentProfile } from "./students";
 
@@ -38,6 +39,7 @@ export type FinancingFacility = {
   readonly annualMarginRateBp: number | null;
   readonly serviceFeeRateBp: number | null;
   readonly payrollDeductionRate: number | null;
+  readonly purposeNote: string | null;
   readonly submittedAt: string | null;
   readonly approvedAt: string | null;
   readonly signedAt: string | null;
@@ -50,6 +52,7 @@ export type DraftInput = {
   readonly institutionId?: string | null;
   readonly requestedAmount?: Rupiah | null;
   readonly academicPurpose?: FinancingPurpose | null;
+  readonly purposeNote?: string | null;
 };
 
 export type FacilityTransition = {
@@ -77,6 +80,7 @@ type FacilityRow = {
   annual_margin_rate_bp: number | null;
   service_fee_rate_bp: number | null;
   payroll_deduction_rate: number | null;
+  purpose_note: string | null;
   submitted_at: string | null;
   approved_at: string | null;
   signed_at: string | null;
@@ -90,7 +94,7 @@ const CONSENT_KEY = "data_processing";
 const FACILITY_COLUMNS = `f.id, f.public_ref, f.student_id, f.institution_id, f.lender_id,
   f.status, f.scheme_type, f.academic_purpose, f.requested_amount, f.approved_amount,
   f.tenor_months, f.annual_margin_rate_bp, f.service_fee_rate_bp, f.payroll_deduction_rate,
-  f.submitted_at, f.approved_at, f.signed_at, f.disbursed_at, f.closed_at, f.created_at`;
+  f.purpose_note, f.submitted_at, f.approved_at, f.signed_at, f.disbursed_at, f.closed_at, f.created_at`;
 
 const SCOPED_FROM = `FROM financing_facilities f
 JOIN students s ON s.id = f.student_id`;
@@ -109,13 +113,15 @@ LIMIT 1`;
 
 const INSERT_DRAFT = `INSERT INTO financing_facilities (
   id, public_ref, student_id, status, scheme_type,
-  institution_id, requested_amount, academic_purpose, created_at, updated_at
-) VALUES (?, ?, ?, 'draft', 'vidyafund', ?, ?, ?, ?, ?)`;
+  institution_id, requested_amount, academic_purpose, purpose_note,
+  created_at, updated_at
+) VALUES (?, ?, ?, 'draft', 'vidyafund', ?, ?, ?, ?, ?, ?)`;
 
 const UPDATE_DRAFT = `UPDATE financing_facilities
 SET institution_id = COALESCE(?, institution_id),
     requested_amount = COALESCE(?, requested_amount),
-    academic_purpose = COALESCE(?, academic_purpose)
+    academic_purpose = COALESCE(?, academic_purpose),
+    purpose_note = COALESCE(?, purpose_note)
 WHERE id = ? AND status = 'draft'`;
 
 const SUBMIT_FACILITY = `UPDATE financing_facilities
@@ -150,6 +156,7 @@ function toFacility(row: FacilityRow): FinancingFacility {
     annualMarginRateBp: row.annual_margin_rate_bp,
     serviceFeeRateBp: row.service_fee_rate_bp,
     payrollDeductionRate: row.payroll_deduction_rate,
+    purposeNote: row.purpose_note,
     submittedAt: row.submitted_at,
     approvedAt: row.approved_at,
     signedAt: row.signed_at,
@@ -291,6 +298,7 @@ export async function saveMyDraft(
             input.institutionId ?? null,
             input.requestedAmount ?? null,
             input.academicPurpose ?? null,
+            input.purposeNote ?? null,
             stamp,
             stamp,
           );
@@ -310,6 +318,7 @@ export async function saveMyDraft(
           input.institutionId ?? null,
           input.requestedAmount ?? null,
           input.academicPurpose ?? null,
+          input.purposeNote ?? null,
           existing.id,
         );
       if (result.changes === 0) {
@@ -340,6 +349,14 @@ export async function submitMyFacility(
     current.academicPurpose === null
   ) {
     throw new Error("facility_incomplete");
+  }
+  if (current.purposeNote === null || current.purposeNote.trim() === "") {
+    throw new Error("purpose_note_required");
+  }
+  if (
+    !(await hasStudentDocument(current.studentId, "purpose_proof", database))
+  ) {
+    throw new Error("proof_required");
   }
   if (!(await hasActiveConsent(CONSENT_KEY))) {
     throw new Error("consent_required");

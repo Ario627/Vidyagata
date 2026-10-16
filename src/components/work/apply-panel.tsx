@@ -4,6 +4,11 @@ import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { applyToJobAction } from "@/app/(app)/kerja/actions";
+import {
+  DocumentUpload,
+  type UploadedDocument,
+} from "@/components/account/document-upload";
+import { Mascot } from "@/components/brand/brand";
 import { Button } from "@/components/ui/button";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -21,12 +26,15 @@ type ApplyPanelProps = {
   readonly postingId: string;
   readonly postingTitle: string;
   readonly existing: ApplicationRef | null;
+  readonly cvDocument: UploadedDocument | null;
 };
 
 const APPLY_MESSAGES: Readonly<Record<string, string>> = {
   invalid_input: "Data yang dikirim tidak valid.",
   student_profile_required:
     "Profil akademikmu belum ada. Profil dibuat otomatis saat kamu mengajukan pembiayaan.",
+  cv_required:
+    "Unggah CV-mu dulu di panel ini — mitra usaha selalu memintanya untuk menilai lamaran.",
   posting_not_found: "Lowongan tidak ditemukan.",
   posting_not_open: "Lowongan ini sudah tidak dibuka.",
   already_applied: "Kamu sudah melamar lowongan ini.",
@@ -35,12 +43,18 @@ const APPLY_MESSAGES: Readonly<Record<string, string>> = {
 const NOTE_CLASS =
   "w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-foreground outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
 
-function ApplyPanel({ postingId, postingTitle, existing }: ApplyPanelProps) {
+function ApplyPanel({
+  postingId,
+  postingTitle,
+  existing,
+  cvDocument,
+}: ApplyPanelProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cv, setCv] = useState<UploadedDocument | null>(cvDocument);
 
   async function confirm() {
     if (busy) return;
@@ -68,19 +82,43 @@ function ApplyPanel({ postingId, postingTitle, existing }: ApplyPanelProps) {
   }
 
   if (existing === null) {
+    const canApply = cv !== null;
     return (
       <>
         <Card className="mt-4">
+          <CardContent className="flex items-start justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <CardTitle>1 · Siapkan CV-mu</CardTitle>
+              <p className="text-xs leading-5 text-foreground-muted">
+                Mitra usaha menjadikan CV sebagai penilaian pertama. Sekali
+                unggah, CV ini dipakai untuk semua lamaranmu.
+              </p>
+            </div>
+          </CardContent>
+          <CardContent className="pt-0">
+            <DocumentUpload
+              kind="cv"
+              label="CV (PDF atau gambar)"
+              hint="PDF paling disarankan. Maksimal 4 MB — cukup satu halaman rapi."
+              allowPdf
+              current={cv}
+              onUploaded={setCv}
+            />
+          </CardContent>
+        </Card>
+        <Card className="mt-4">
           <CardContent>
-            <CardTitle>Tertarik posisi ini?</CardTitle>
+            <CardTitle>2 · Kirim lamaran</CardTitle>
           </CardContent>
           <CardContent className="flex flex-col gap-3">
             <p className="text-sm leading-6 text-foreground-muted">
-              Kirim lamaranmu sekarang. Mitra usaha melihat catatan singkat dan
-              profil akademikmu — tanpa perlu kirim berkas.
+              {canApply
+                ? "CV siap. Tambahkan catatan singkat kalau perlu, lalu kirim."
+                : "Tombol lamar aktif setelah CV-mu terunggah di langkah pertama."}
             </p>
             <Button
               size="lg"
+              disabled={!canApply}
               onClick={() => {
                 setError(null);
                 setOpen(true);
@@ -154,14 +192,38 @@ function ApplyPanel({ postingId, postingTitle, existing }: ApplyPanelProps) {
   if (existing.status === "accepted") {
     return (
       <Card className="mt-4">
-        <CardContent>
-          <CardTitle>Lamaran diterima</CardTitle>
+        <CardContent className="flex items-center gap-4">
+          <Mascot name="pesta" sizes="80px" className="size-20 shrink-0" />
+          <div className="flex min-w-0 flex-col gap-1">
+            <CardTitle>Lamaran diterima</CardTitle>
+            <p className="text-sm leading-6 text-foreground-muted">
+              Selamat! Mitra usaha menerima lamaranmu untuk posisi ini. Detail
+              penempatan akan dihubungi lewat kontak akunmu.
+            </p>
+          </div>
         </CardContent>
-        <CardContent>
-          <p className="text-sm leading-6 text-foreground-muted">
-            Selamat! Mitra usaha menerima lamaranmu untuk posisi ini. Detail
-            penempatan akan dihubungi lewat kontak akunmu.
-          </p>
+      </Card>
+    );
+  }
+
+  if (existing.status === "shortlisted") {
+    return (
+      <Card className="mt-4">
+        <CardContent className="flex items-center gap-4">
+          <Mascot name="jempol" sizes="72px" className="size-18 shrink-0" />
+          <div className="flex min-w-0 flex-col gap-1">
+            <CardTitle>Masuk daftar pendek</CardTitle>
+            <p className="text-sm leading-6 text-foreground-muted">
+              Mitra usaha menandai lamaranmu sebagai kandidat kuat. Tetap pantau
+              notifikasi — kabar berikutnya bisa datang kapan saja.
+            </p>
+          </div>
+        </CardContent>
+        <CardContent className="pt-0">
+          <WithdrawApplicationButton
+            applicationId={existing.id}
+            postingTitle={postingTitle}
+          />
         </CardContent>
       </Card>
     );
@@ -170,17 +232,12 @@ function ApplyPanel({ postingId, postingTitle, existing }: ApplyPanelProps) {
   return (
     <Card className="mt-4">
       <CardContent>
-        <CardTitle>
-          {existing.status === "shortlisted"
-            ? "Masuk daftar pendek"
-            : "Lamaran terkirim"}
-        </CardTitle>
+        <CardTitle>Lamaran terkirim</CardTitle>
       </CardContent>
       <CardContent className="flex flex-col gap-3">
         <p className="text-sm leading-6 text-foreground-muted">
-          {existing.status === "shortlisted"
-            ? "Mitra usaha menandai lamaranmu sebagai kandidat kuat. Tetap pantau notifikasi."
-            : "Mitra usaha akan meninjau lamaranmu. Kamu bisa menariknya selama belum diputuskan."}
+          Mitra usaha akan meninjau CV dan catatanmu. Kamu bisa menariknya
+          selama belum diputuskan.
         </p>
         <WithdrawApplicationButton
           applicationId={existing.id}

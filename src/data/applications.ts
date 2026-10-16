@@ -4,6 +4,7 @@ import { inTransaction } from "@/lib/db/tx";
 import { newId } from "@/lib/id";
 import { getCurrentUser } from "@/lib/session";
 import { appendAudit, prepareAudit } from "./audit";
+import { hasStudentDocument } from "./documents";
 
 export const APPLICATION_STATUSES = [
   "draft",
@@ -127,6 +128,9 @@ export async function applyToJob(input: {
   const studentId = await selectMyStudentId(database, user.id);
   if (studentId === null) {
     return { ok: false, code: "student_profile_required" };
+  }
+  if (!(await hasStudentDocument(studentId, "cv", database))) {
+    return { ok: false, code: "cv_required" };
   }
   const posting = (await database
     .prepare(SELECT_POSTING)

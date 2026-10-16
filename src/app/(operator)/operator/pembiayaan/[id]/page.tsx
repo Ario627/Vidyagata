@@ -16,6 +16,8 @@ const DOCUMENT_LABELS: Readonly<Record<string, string>> = {
   ktm: "Kartu mahasiswa",
   selfie: "Foto wajah",
   statement_signed: "Surat bertanda tangan",
+  cv: "CV",
+  purpose_proof: "Bukti penggunaan dana",
 };
 
 import { getFacilityDocumentsOverview } from "@/data/documents";
@@ -142,6 +144,38 @@ export default async function OperatorReviewPage({
               }
             />
           </dl>
+        </CardContent>
+      </Card>
+      <Card className="mt-4">
+        <CardContent className="flex items-center justify-between gap-3">
+          <CardTitle>Rencana penggunaan dana</CardTitle>
+          <Badge
+            variant={detail.proofDocumentId === null ? "warning" : "success"}
+          >
+            {detail.proofDocumentId === null
+              ? "Bukti belum ada"
+              : "Bukti terlampir"}
+          </Badge>
+        </CardContent>
+        <CardContent className="flex flex-col gap-3">
+          {detail.purposeNote === null ? (
+            <p className="text-sm text-foreground-muted">
+              Mahasiswa belum menulis rencana penggunaan dana — minta
+              melengkapinya sebelum meneruskan pengajuan.
+            </p>
+          ) : (
+            <p className="text-sm leading-6 text-foreground">
+              {detail.purposeNote}
+            </p>
+          )}
+          {detail.proofDocumentId === null ? null : (
+            <a
+              href={`/api/documents/${detail.proofDocumentId}`}
+              className="text-sm font-medium text-primary transition-colors duration-150 ease-out hover:text-primary-hover"
+            >
+              Buka dokumen bukti
+            </a>
+          )}
         </CardContent>
       </Card>
       <Card className="mt-4">

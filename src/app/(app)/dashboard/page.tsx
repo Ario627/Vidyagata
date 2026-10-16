@@ -385,6 +385,7 @@ export default async function DashboardPage() {
       <GreetingHeader
         title={`Halo, ${firstName}!`}
         avatar={<HeaderAvatar name={snapshot.name} />}
+        notificationDot={tagihan !== null && tagihan.overdueCount > 0}
       >
         {tagihan === null ? null : (
           <div className="mt-4 grid grid-cols-2 gap-2">

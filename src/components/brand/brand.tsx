@@ -8,6 +8,8 @@ const MASCOTS = {
   tanya: { src: "/brand/mascot-tanya.webp", width: 555, height: 708 },
   ceria: { src: "/brand/mascot-ceria.webp", width: 640, height: 731 },
   telusuri: { src: "/brand/mascot-telusuri.webp", width: 640, height: 700 },
+  jempol: { src: "/brand/mascot-jempol.webp", width: 640, height: 825 },
+  pesta: { src: "/brand/mascot-pesta.webp", width: 640, height: 911 },
 } as const;
 
 export type MascotName = keyof typeof MASCOTS;

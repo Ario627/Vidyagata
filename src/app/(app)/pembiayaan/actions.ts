@@ -33,6 +33,7 @@ export async function saveDraftAction(
       institutionId: parsed.data.institutionId ?? null,
       requestedAmount: parsed.data.requestedAmount ?? null,
       academicPurpose: parsed.data.purpose ?? null,
+      purposeNote: parsed.data.purposeNote ?? null,
     });
     return { ok: true, facilityId: facility.id };
   } catch (error) {

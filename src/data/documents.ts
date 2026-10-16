@@ -15,6 +15,7 @@ import {
   type StatementInput,
   statementDocumentNumber,
 } from "@/domain/legal/statement";
+import type { Db } from "@/lib/db/client";
 import { db } from "@/lib/db/client";
 import {
   MAX_DOCUMENT_BYTES,
@@ -167,7 +168,7 @@ const INSERT_SIGNATURE = `INSERT INTO student_statement_signatures (
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(student_id, statement_version) DO NOTHING`;
 
-function sniffMime(bytes: Uint8Array): string | null {
+export function sniffDocumentMime(bytes: Uint8Array): string | null {
   if (
     bytes.length >= 3 &&
     bytes[0] === 0xff &&
@@ -215,7 +216,7 @@ function isKind(value: string): value is StudentDocumentKind {
 }
 
 function allowedMimeFor(kind: StudentDocumentKind): readonly string[] {
-  return kind === "statement_signed" ? ALL_MIME : IMAGE_MIME;
+  return kind === "ktm" || kind === "selfie" ? IMAGE_MIME : ALL_MIME;
 }
 
 async function selectStatementProfile(
@@ -254,6 +255,30 @@ export async function getMyDocuments(): Promise<
   return (rows ?? []).map(toMeta);
 }
 
+const SELECT_DOCUMENT_EXISTS = `SELECT 1 AS present FROM student_documents
+WHERE student_id = ? AND kind = ?`;
+
+export async function hasStudentDocument(
+  studentId: string,
+  kind: StudentDocumentKind,
+  database: Db = db,
+): Promise<boolean> {
+  const row = (await database
+    .prepare(SELECT_DOCUMENT_EXISTS)
+    .get(studentId, kind)) as { present: number } | undefined;
+  return row !== undefined;
+}
+
+export async function hasMyDocument(
+  kind: StudentDocumentKind,
+): Promise<boolean> {
+  const user = await getCurrentUser();
+  if (user === null) return false;
+  const profile = await selectStatementProfile(user.id);
+  if (profile === null) return false;
+  return hasStudentDocument(profile.id, kind);
+}
+
 export async function saveStudentDocument(input: {
   readonly kind: string;
   readonly bytes: Uint8Array;
@@ -265,7 +290,7 @@ export async function saveStudentDocument(input: {
   if (input.bytes.length === 0 || input.bytes.length > MAX_DOCUMENT_BYTES) {
     return { ok: false, code: "too_large" };
   }
-  const mime = sniffMime(input.bytes);
+  const mime = sniffDocumentMime(input.bytes);
   if (mime === null || !allowedMimeFor(kind).includes(mime)) {
     return { ok: false, code: "invalid_type" };
   }
@@ -371,7 +396,7 @@ export async function signMyStatement(input: {
   if (
     bytes.length < MIN_SIGNATURE_BYTES ||
     bytes.length > MAX_SIGNATURE_BYTES ||
-    sniffMime(bytes) !== "image/png"
+    sniffDocumentMime(bytes) !== "image/png"
   ) {
     return { ok: false, code: "invalid_signature" };
   }

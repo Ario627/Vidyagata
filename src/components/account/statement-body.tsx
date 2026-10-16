@@ -4,6 +4,7 @@ import {
   STATEMENT_LETTERHEAD,
   STATEMENT_LETTERHEAD_TAGLINE,
 } from "@/domain/legal/statement";
+import { cn } from "@/lib/utils";
 
 const JAKARTA_TIME_ZONE = "Asia/Jakarta";
 
@@ -84,7 +85,7 @@ function ClauseList({ state }: { readonly state: StatementState }) {
 function SignatureBlock({ state }: { readonly state: StatementState }) {
   const signed = state.signedAt !== null;
   return (
-    <div className="flex justify-end">
+    <div className="statement-signature flex justify-end">
       <div className="flex w-64 flex-col text-sm leading-6 text-ink-900">
         <p>
           {state.city}, {formatLetterDate(state.issuedAt)}
@@ -125,9 +126,20 @@ function SignatureBlock({ state }: { readonly state: StatementState }) {
   );
 }
 
-function StatementBody({ state }: { readonly state: StatementState }) {
+function StatementBody({
+  state,
+  className,
+}: {
+  readonly state: StatementState;
+  readonly className?: string | undefined;
+}) {
   return (
-    <article className="flex flex-col gap-5 rounded-xl border border-border bg-surface p-5 print:rounded-none print:border-0 print:p-0">
+    <article
+      className={cn(
+        "statement-sheet flex flex-col gap-5 rounded-xl border border-border bg-surface p-5 print:gap-4 print:rounded-none print:border-0 print:p-0",
+        className,
+      )}
+    >
       <Letterhead number={state.documentNumber} />
       <h1 className="text-center text-base font-semibold uppercase tracking-[0.28em] text-ink-900">
         {state.title}
@@ -136,7 +148,7 @@ function StatementBody({ state }: { readonly state: StatementState }) {
       <ClauseList state={state} />
       <p className="text-sm leading-6 text-ink-900">{state.closing}</p>
       <SignatureBlock state={state} />
-      <footer className="border-border border-t pt-2 text-2xs leading-4 text-foreground-subtle">
+      <footer className="statement-fine border-border border-t pt-2 text-2xs leading-4 text-foreground-subtle">
         Dokumen ini diterbitkan melalui platform Vidyagata.
         {state.statementHash === null
           ? " Belum ada tanda tangan elektronik tersimpan."

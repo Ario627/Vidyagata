@@ -7,6 +7,7 @@ import { hasActiveFacility } from "@/components/financing/labels";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { EmptyState } from "@/components/ui/empty-state";
 import { activeConsentDefinition, hasActiveConsent } from "@/data/consents";
+import { getMyDocuments } from "@/data/documents";
 import { getMyDraft, listMyFacilities } from "@/data/financing";
 import { listInstitutionOptions } from "@/data/institutions";
 import { getPilotLenderTerms } from "@/data/lenders";
@@ -104,19 +105,23 @@ export default async function AjukanPembiayaanPage() {
   const institutions = await listInstitutionOptions();
   const draft = await getMyDraft();
   const consentGranted = await hasActiveConsent("data_processing");
+  const documents = await getMyDocuments();
+  const proofDocument =
+    documents.find((document) => document.kind === "purpose_proof") ?? null;
 
   return (
     <Shell>
       <PageHeader
         eyebrow="VidyaFund"
         title="Ajukan pembiayaan"
-        description="Tiga langkah singkat. Progresmu tersimpan otomatis — kamu bisa lanjut kapan saja."
+        description="Progresmu tersimpan otomatis — kamu bisa lanjut kapan saja."
       />
       <ApplyFlow
         institutions={institutions}
         terms={terms}
         consent={consent}
         consentGranted={consentGranted}
+        proofDocument={proofDocument}
         draft={
           draft === null
             ? null
@@ -125,6 +130,7 @@ export default async function AjukanPembiayaanPage() {
                 institutionId: draft.institutionId,
                 requestedAmount: draft.requestedAmount,
                 purpose: draft.academicPurpose,
+                purposeNote: draft.purposeNote,
               }
         }
       />

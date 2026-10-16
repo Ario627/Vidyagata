@@ -9,6 +9,27 @@ export const PURPOSE_LABELS: Readonly<Record<AcademicPurpose, string>> = {
   other: "Lainnya",
 };
 
+export const PURPOSE_PROOF_GUIDANCE: Readonly<Record<AcademicPurpose, string>> =
+  {
+    tuition:
+      "Bukti berupa tagihan resmi dari kampus — surat UKT/BPP, invoice, atau kuitansi pembayaran terbaru. Pastikan nama dan nominalnya terbaca.",
+    living_cost:
+      "Bukti berupa rincian kebutuhan bulanan yang didukung dokumen — perjanjian sewa/kontrak kamar, tagihan kos, atau daftar pengeluaran dengan nominal yang jelas.",
+    other:
+      "Bukti berupa dokumen pendukung sesuai keperluan — invoice alat, penawaran vendor, atau surat keterangan resmi yang relevan.",
+  };
+
+export const PURPOSE_NOTE_PLACEHOLDER: Readonly<
+  Record<AcademicPurpose, string>
+> = {
+  tuition:
+    "mis. Dana dipakai untuk melunasi UKT semester 7 sebesar Rp6.000.000 sesuai surat tagihan kampus yang saya lampirkan.",
+  living_cost:
+    "mis. Dana dipakai untuk biaya kos dan makan selama 6 bulan ke depan; sewa Rp1.200.000/bulan sesuai perjanjian sewa yang saya lampirkan.",
+  other:
+    "mis. Dana dipakai untuk membeli laptop pendukung kuliah; penawaran toko dengan spesifikasi dan harga saya lampirkan.",
+};
+
 type StatusMeta = {
   readonly label: string;
   readonly variant: "neutral" | "info" | "success" | "warning" | "danger";

@@ -717,4 +717,52 @@ ALTER TABLE students ADD COLUMN IF NOT EXISTS bio text;`,
       version: "0005_additive_statement_signature_image",
       statements: `ALTER TABLE student_statement_signatures ADD COLUMN IF NOT EXISTS signature_image text;`,
     },
+    {
+      version: "0006_additive_document_kinds",
+      statements: `ALTER TABLE student_documents DROP CONSTRAINT IF EXISTS student_documents_kind_check;
+ALTER TABLE student_documents ADD CONSTRAINT student_documents_kind_check CHECK (kind IN ('ktm', 'selfie', 'statement_signed', 'cv', 'purpose_proof'));`,
+    },
+    {
+      version: "0007_additive_facility_purpose_note",
+      statements: `ALTER TABLE financing_facilities ADD COLUMN IF NOT EXISTS purpose_note text;`,
+    },
+    {
+      version: "0008_installment_payments",
+      statements: `CREATE TABLE IF NOT EXISTS installment_payments (
+  id text PRIMARY KEY,
+  installment_id text NOT NULL REFERENCES installments(id),
+  facility_id text NOT NULL REFERENCES financing_facilities(id),
+  student_id text NOT NULL REFERENCES students(id),
+  amount bigint NOT NULL CHECK (amount > 0),
+  sender_name text NOT NULL CHECK (length(trim(sender_name)) >= 3),
+  note text,
+  proof_mime text NOT NULL CHECK (proof_mime IN ('image/jpeg', 'image/png', 'application/pdf')),
+  proof_size integer NOT NULL CHECK (proof_size > 0 AND proof_size <= 4194304),
+  proof_sha256 text NOT NULL CHECK (length(proof_sha256) = 64),
+  proof_data bytea NOT NULL,
+  status text NOT NULL CHECK (status IN ('submitted', 'verified', 'rejected')),
+  submitted_at timestamptz NOT NULL,
+  verified_by text REFERENCES "user"(id),
+  verified_at timestamptz,
+  rejection_reason text,
+  created_at timestamptz NOT NULL,
+  updated_at timestamptz NOT NULL,
+  CONSTRAINT ck_installment_payments_verified
+    CHECK (status = 'submitted' OR (verified_by IS NOT NULL AND verified_at IS NOT NULL)),
+  CONSTRAINT ck_installment_payments_reject_reason
+    CHECK (status <> 'rejected' OR (rejection_reason IS NOT NULL AND length(trim(rejection_reason)) >= 3))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_installment_payments_open
+  ON installment_payments (installment_id)
+  WHERE status = 'submitted';
+CREATE INDEX IF NOT EXISTS idx_installment_payments_installment
+  ON installment_payments (installment_id, submitted_at);
+CREATE INDEX IF NOT EXISTS idx_installment_payments_status
+  ON installment_payments (status, submitted_at);
+CREATE INDEX IF NOT EXISTS idx_installment_payments_facility
+  ON installment_payments (facility_id, submitted_at);
+CREATE OR REPLACE TRIGGER installment_payments_touch
+BEFORE UPDATE ON installment_payments
+FOR EACH ROW EXECUTE FUNCTION vg_touch();`,
+    },
   ];

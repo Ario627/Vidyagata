@@ -42,6 +42,8 @@ export type ReviewDetail = {
   readonly studentSemester: number | null;
   readonly studentGpaHundredths: number | null;
   readonly studentAcademicStatus: AcademicStatus;
+  readonly purposeNote: string | null;
+  readonly proofDocumentId: string | null;
   readonly eligibility: EligibilityAssessment;
   readonly minScore: number;
   readonly claimedByMe: boolean;
@@ -69,6 +71,8 @@ type ReviewRow = QueueRow & {
   current_semester: number | null;
   gpa_hundredths: number | null;
   academic_status: string;
+  purpose_note: string | null;
+  proof_document_id: string | null;
 };
 
 const QUEUE_COLUMNS = `f.id, f.public_ref, f.status, f.requested_amount,
@@ -85,9 +89,12 @@ WHERE f.status IN ('submitted', 'under_review')
 ORDER BY f.submitted_at, f.id`;
 
 const SELECT_REVIEW = `SELECT ${QUEUE_COLUMNS}, s.full_name, s.current_semester,
-  s.gpa_hundredths, s.academic_status
+  s.gpa_hundredths, s.academic_status, f.purpose_note,
+  d.id AS proof_document_id
 ${QUEUE_FROM}
 JOIN students s ON s.id = f.student_id
+LEFT JOIN student_documents d
+  ON d.student_id = s.id AND d.kind = 'purpose_proof'
 WHERE f.id = ?`;
 
 const INSERT_PORTFOLIO = `INSERT INTO officer_portfolios (
@@ -172,6 +179,8 @@ function toReviewDetail(
     studentSemester: row.current_semester,
     studentGpaHundredths: row.gpa_hundredths,
     studentAcademicStatus: row.academic_status as AcademicStatus,
+    purposeNote: row.purpose_note,
+    proofDocumentId: row.proof_document_id,
     eligibility,
     minScore: FORWARD_MIN_SCORE,
     claimedByMe: row.officer_id === officerId,

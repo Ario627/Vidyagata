@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { MAX_MONEY_AMOUNT } from "@/schemas/common";
 import { ACADEMIC_PURPOSES, type AcademicPurpose } from "@/schemas/financing";
 import { EstimatePanel } from "./estimate-panel";
-import { PURPOSE_LABELS } from "./labels";
+import { PURPOSE_LABELS, PURPOSE_PROOF_GUIDANCE } from "./labels";
 
 type StepAmountProps = {
   readonly amount: number | null;
@@ -76,6 +76,20 @@ function StepAmount({
           Tujuan pembiayaan tercatat di pengajuanmu untuk kepatuhan penggunaan
           produktif.
         </p>
+        {purpose === null ? null : (
+          <div className="mt-1 rounded-xl border border-border bg-surface-raised p-4">
+            <p className="text-xs font-semibold text-foreground">
+              Bukti yang wajib kamu lampirkan
+            </p>
+            <p className="mt-1.5 text-sm leading-6 text-foreground-muted">
+              {PURPOSE_PROOF_GUIDANCE[purpose]}
+            </p>
+            <p className="mt-2 text-2xs leading-4 text-foreground-subtle">
+              Tanpa bukti ini pengajuan tidak bisa dikirim — ini melindungi kamu
+              dari penyalahgunaan dana.
+            </p>
+          </div>
+        )}
       </div>
       {showEstimate ? <EstimatePanel amount={amount} terms={terms} /> : null}
     </div>

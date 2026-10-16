@@ -26,6 +26,7 @@ export type ScheduleSeed = {
 };
 
 export type TagihanInstallment = {
+  readonly id: string;
   readonly periodNo: number;
   readonly dueDate: PlainDate;
   readonly principal: Rupiah;
@@ -61,6 +62,7 @@ type MyScheduleRow = {
 };
 
 type InstallmentRow = {
+  id: string;
   period_no: number;
   due_date: string;
   principal_amount: number;
@@ -92,7 +94,7 @@ WHERE s.user_id = ? AND rs.status IN ('active', 'completed')
 ORDER BY rs.activated_at DESC, rs.id DESC
 LIMIT 1`;
 
-const SELECT_INSTALLMENTS = `SELECT period_no, due_date, principal_amount,
+const SELECT_INSTALLMENTS = `SELECT id, period_no, due_date, principal_amount,
   margin_amount, fee_amount, total_amount, status
 FROM installments
 WHERE schedule_id = ?
@@ -164,6 +166,7 @@ function toInstallment(
       ? "overdue"
       : row.status;
   return {
+    id: row.id,
     periodNo: row.period_no,
     dueDate: dueDate.value,
     principal: rupiah(row.principal_amount),

@@ -8,6 +8,7 @@ import {
   saveDraftAction,
   submitApplicationAction,
 } from "@/app/(app)/pembiayaan/actions";
+import type { UploadedDocument } from "@/components/account/document-upload";
 import { Button } from "@/components/ui/button";
 import type { ConsentDefinition } from "@/data/consents";
 import type { InstitutionOption } from "@/data/institutions";
@@ -16,13 +17,14 @@ import { cn } from "@/lib/utils";
 import { type AcademicPurpose, RequestedAmount } from "@/schemas/financing";
 import { StepAmount } from "./step-amount";
 import { StepInstitution } from "./step-institution";
-import { StepReview } from "./step-review";
+import { PURPOSE_NOTE_MIN_LENGTH, StepReview } from "./step-review";
 
 export type ApplyDraftSeed = {
   readonly facilityId: string;
   readonly institutionId: string | null;
   readonly requestedAmount: number | null;
   readonly purpose: AcademicPurpose | null;
+  readonly purposeNote: string | null;
 };
 
 type ApplyFlowProps = {
@@ -31,6 +33,7 @@ type ApplyFlowProps = {
   readonly consent: ConsentDefinition;
   readonly consentGranted: boolean;
   readonly draft: ApplyDraftSeed | null;
+  readonly proofDocument: UploadedDocument | null;
 };
 
 const STEPS = ["Kampus", "Nominal", "Tinjau"] as const;
@@ -42,6 +45,10 @@ const ERROR_MESSAGES: Readonly<Record<string, string>> = {
   student_profile_required: "Lengkapi profil dan data akademikmu dulu.",
   facility_incomplete: "Masih ada data yang belum lengkap.",
   consent_required: "Setujui pemrosesan data untuk mengirim pengajuan.",
+  purpose_note_required:
+    "Rencana penggunaan dana belum terisi — minimal 40 karakter.",
+  proof_required:
+    "Dokumen bukti penggunaan dana belum terunggah. Unggah dulu sebelum mengirim.",
   active_facility_exists: "Kamu masih punya pengajuan yang berjalan.",
   invalid_transition: "Pengajuan ini sudah tidak bisa diubah.",
   facility_not_found: "Pengajuan tidak ditemukan.",
@@ -57,6 +64,7 @@ function messageFor(code: string): string {
 
 function initialStepOf(draft: ApplyDraftSeed | null): StepIndex {
   if (draft === null || draft.institutionId === null) return 0;
+  if (draft.requestedAmount !== null && draft.purpose !== null) return 2;
   return 1;
 }
 
@@ -66,6 +74,7 @@ function ApplyFlow({
   consent,
   consentGranted,
   draft,
+  proofDocument: initialProof,
 }: ApplyFlowProps) {
   const router = useRouter();
   const [step, setStep] = useState<StepIndex>(() => initialStepOf(draft));
@@ -81,6 +90,12 @@ function ApplyFlow({
   const [purpose, setPurpose] = useState<AcademicPurpose | null>(
     draft?.purpose ?? null,
   );
+  const [purposeNote, setPurposeNote] = useState<string>(
+    draft?.purposeNote ?? "",
+  );
+  const [proofDocument, setProofDocument] = useState<UploadedDocument | null>(
+    initialProof,
+  );
   const [consentChecked, setConsentChecked] = useState(consentGranted);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"save" | "submit" | null>(null);
@@ -89,6 +104,7 @@ function ApplyFlow({
     readonly institutionId?: string;
     readonly requestedAmount?: number;
     readonly purpose?: AcademicPurpose;
+    readonly purposeNote?: string;
   }): Promise<boolean> {
     const result = await saveDraftAction(input);
     if (result.ok) {
@@ -140,12 +156,29 @@ function ApplyFlow({
       setError("Isi langkah sebelumnya dulu.");
       return;
     }
+    if (purposeNote.trim().length < PURPOSE_NOTE_MIN_LENGTH) {
+      setError(
+        `Rencana penggunaan dana belum lengkap — tulis minimal ${PURPOSE_NOTE_MIN_LENGTH} karakter.`,
+      );
+      return;
+    }
+    if (proofDocument === null) {
+      setError(
+        "Unggah dulu dokumen bukti penggunaan dana sebelum mengirim pengajuan.",
+      );
+      return;
+    }
     if (!consentGranted && !consentChecked) {
       setError("Centang persetujuan dulu sebelum mengirim.");
       return;
     }
     setError(null);
     setBusy("submit");
+    const savedNote = await persist({ purposeNote: purposeNote.trim() });
+    if (!savedNote) {
+      setBusy(null);
+      return;
+    }
     if (!consentGranted) {
       const consentResult = await grantConsentAction();
       if (!consentResult.ok) {
@@ -222,6 +255,10 @@ function ApplyFlow({
           amount={amount ?? 0}
           purpose={purpose}
           terms={terms}
+          purposeNote={purposeNote}
+          onPurposeNoteChange={setPurposeNote}
+          proofDocument={proofDocument}
+          onProofUploaded={setProofDocument}
           consent={consent}
           consentGranted={consentGranted}
           consentChecked={consentChecked}

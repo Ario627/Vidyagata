@@ -21,6 +21,12 @@ export const RequestedAmount = MoneyAmount.refine((amount) => amount > 0, {
   error: "Nominal pengajuan harus lebih dari nol",
 });
 
+export const PurposeNote = z
+  .string({ error: "Ceritakan rencana penggunaan dana" })
+  .trim()
+  .min(40, { error: "Tulis minimal 40 karakter agar bisa ditinjau" })
+  .max(600, { error: "Maksimal 600 karakter" });
+
 export const TenorMonths = z
   .int({ error: "Tenor harus bilangan bulat bulan" })
   .min(1, { error: "Tenor minimal 1 bulan" })
@@ -36,6 +42,7 @@ export const ApplyDraftSchema = z.object({
   institutionId: z.ulid({ error: "Kampus tujuan tidak valid" }).optional(),
   requestedAmount: RequestedAmount.optional(),
   purpose: AcademicPurposeSchema.optional(),
+  purposeNote: PurposeNote.optional(),
 });
 
 export const SimulationSchema = z.object({

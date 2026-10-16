@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS financing_facilities (
   annual_margin_rate_bp INTEGER CHECK (annual_margin_rate_bp IS NULL OR (annual_margin_rate_bp BETWEEN 0 AND 99999)),
   service_fee_rate_bp INTEGER CHECK (service_fee_rate_bp IS NULL OR (service_fee_rate_bp BETWEEN 0 AND 99999)),
   payroll_deduction_rate INTEGER CHECK (payroll_deduction_rate IS NULL OR payroll_deduction_rate IN (20, 40, 60)),
+  purpose_note TEXT,
   submitted_at TEXT,
   approved_at TEXT,
   signed_at TEXT,
