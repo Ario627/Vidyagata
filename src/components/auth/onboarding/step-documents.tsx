@@ -49,9 +49,9 @@ function StepDocuments({ onComplete }: StepDocumentsProps) {
           Verifikasi dokumen
         </p>
         <p className="text-sm leading-6 text-foreground-muted">
-          Dua foto singkat dan satu tanda tangan. Foto diproses di perangkatmu
-          dulu supaya hemat kuota, dan hanya bisa dilihat olehmu serta petugas
-          verifikasi.
+          Dua foto dan satu surat pernyataan bertanda tangan. Foto diproses di
+          perangkatmu dulu supaya hemat kuota, dan hanya bisa dilihat olehmu
+          serta petugas verifikasi.
         </p>
       </div>
       <DocumentUpload

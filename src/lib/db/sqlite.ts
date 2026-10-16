@@ -124,6 +124,11 @@ const ADDITIVE_COLUMNS: readonly AdditiveColumn[] = [
   { table: "students", column: "address_line", definition: "TEXT" },
   { table: "students", column: "hobby", definition: "TEXT" },
   { table: "students", column: "bio", definition: "TEXT" },
+  {
+    table: "student_statement_signatures",
+    column: "signature_image",
+    definition: "TEXT",
+  },
 ];
 
 function ensureAdditiveColumns(database: DatabaseSync): void {

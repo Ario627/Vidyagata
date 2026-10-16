@@ -1,5 +1,8 @@
 import postgres from "postgres";
-import { POSTGRES_SCHEMA } from "../src/lib/db/schema/postgres.ts";
+import {
+  POSTGRES_ADDITIVE_MIGRATIONS,
+  POSTGRES_SCHEMA,
+} from "../src/lib/db/schema/postgres.ts";
 
 const SCHEMA_VERSION = "0002_student_documents";
 
@@ -35,24 +38,35 @@ async function main() {
       applied_at timestamptz NOT NULL
     )
   `;
-  const rows = await sql`
-    SELECT version FROM schema_migrations WHERE version = ${SCHEMA_VERSION}
-  `;
-  if (rows.length > 0) {
-    console.log(`lewati ${SCHEMA_VERSION} (sudah diterapkan)`);
-    await sql.end({ timeout: 5 });
-    return;
-  }
-  console.log(`terapkan ${SCHEMA_VERSION}...`);
   await sql.begin(async (tx) => {
     await tx`SELECT pg_advisory_xact_lock(hashtext('vidyagata_schema'))`;
-    await tx.unsafe(POSTGRES_SCHEMA);
-    await tx`
-      INSERT INTO schema_migrations (version, applied_at)
-      VALUES (${SCHEMA_VERSION}, ${new Date().toISOString()})
-    `;
+    const rows = await tx`SELECT version FROM schema_migrations`;
+    const seen = new Set(rows.map((row) => row.version));
+    if (seen.has(SCHEMA_VERSION)) {
+      console.log(`lewati ${SCHEMA_VERSION} (sudah diterapkan)`);
+    } else {
+      console.log(`terapkan ${SCHEMA_VERSION}...`);
+      await tx.unsafe(POSTGRES_SCHEMA);
+      await tx`
+        INSERT INTO schema_migrations (version, applied_at)
+        VALUES (${SCHEMA_VERSION}, ${new Date().toISOString()})
+      `;
+      console.log(`selesai ${SCHEMA_VERSION}`);
+    }
+    for (const migration of POSTGRES_ADDITIVE_MIGRATIONS) {
+      if (seen.has(migration.version)) {
+        console.log(`lewati ${migration.version} (sudah diterapkan)`);
+        continue;
+      }
+      console.log(`terapkan ${migration.version}...`);
+      await tx.unsafe(migration.statements);
+      await tx`
+        INSERT INTO schema_migrations (version, applied_at)
+        VALUES (${migration.version}, ${new Date().toISOString()})
+      `;
+      console.log(`selesai ${migration.version}`);
+    }
   });
-  console.log(`selesai ${SCHEMA_VERSION}`);
   console.log(
     "Seed katalog + data demo dijalankan otomatis oleh aplikasi saat request pertama (set SEED_DEMO=true untuk ikut membuat akun demo).",
   );

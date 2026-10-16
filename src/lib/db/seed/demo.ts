@@ -3,6 +3,7 @@ import { buildRepaymentSchedule } from "@/domain/financing/schedule";
 import {
   buildStatementCanonical,
   STATEMENT_VERSION,
+  statementDocumentNumber,
 } from "@/domain/legal/statement";
 import { rupiah } from "@/domain/money/money";
 import { parsePlainDate } from "@/domain/time/plain-date";
@@ -652,7 +653,9 @@ async function insertSignature(
     academicStatus: "undergraduate",
     currentSemester: student.semester,
     city: student.city,
+    province: student.province,
     deductionRate: null,
+    documentNumber: statementDocumentNumber(studentId, 2026),
   });
   const hash = createHash("sha256").update(canonical).digest("hex");
   await database

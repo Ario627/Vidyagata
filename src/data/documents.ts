@@ -3,12 +3,17 @@ import { createHash } from "node:crypto";
 import { recordAudit } from "@/data/audit";
 import { requireRole } from "@/data/dal";
 import { rolesOf } from "@/data/roles";
+import { jakartaPlainDateOf } from "@/domain/account/age";
 import {
   buildStatementCanonical,
-  buildStatementParagraphs,
+  buildStatementClauses,
+  buildStatementClosing,
+  buildStatementIdentity,
   STATEMENT_TITLE,
   STATEMENT_VERSION,
+  type StatementIdentityRow,
   type StatementInput,
+  statementDocumentNumber,
 } from "@/domain/legal/statement";
 import { db } from "@/lib/db/client";
 import {
@@ -42,9 +47,14 @@ export type DocumentSaveResult =
 export type StatementState = {
   readonly title: string;
   readonly version: string;
-  readonly paragraphs: readonly string[];
+  readonly documentNumber: string;
+  readonly identityRows: readonly StatementIdentityRow[];
+  readonly clauses: readonly string[];
+  readonly closing: string;
+  readonly issuedAt: string;
   readonly signedAt: string | null;
   readonly signedName: string | null;
+  readonly signatureImage: string | null;
   readonly statementHash: string | null;
   readonly fullName: string;
   readonly city: string;
@@ -54,11 +64,17 @@ export type SignStatementResult =
   | { readonly ok: true; readonly signedAt: string }
   | {
       readonly ok: false;
-      readonly code: "profile_incomplete" | "name_mismatch" | "already_signed";
+      readonly code:
+        | "profile_incomplete"
+        | "invalid_signature"
+        | "already_signed";
     };
 
 const IMAGE_MIME: readonly string[] = ["image/jpeg", "image/png"];
 const ALL_MIME: readonly string[] = [...IMAGE_MIME, "application/pdf"];
+const SIGNATURE_PNG_PREFIX = "data:image/png;base64,";
+const MIN_SIGNATURE_BYTES = 128;
+const MAX_SIGNATURE_BYTES = 96 * 1024;
 
 type DocumentRow = {
   id: string;
@@ -81,6 +97,7 @@ type StatementProfileRow = {
 type SignatureRow = {
   statement_hash: string;
   signed_name: string;
+  signature_image: string | null;
   signed_at: string;
 };
 
@@ -137,7 +154,8 @@ WHERE student_id = ? AND payroll_deduction_rate IS NOT NULL
 ORDER BY created_at DESC, id DESC
 LIMIT 1`;
 
-const SELECT_SIGNATURE = `SELECT statement_hash, signed_name, signed_at
+const SELECT_SIGNATURE = `SELECT statement_hash, signed_name, signature_image,
+  signed_at
 FROM student_statement_signatures
 WHERE student_id = ? AND statement_version = ?
 ORDER BY signed_at DESC
@@ -145,8 +163,8 @@ LIMIT 1`;
 
 const INSERT_SIGNATURE = `INSERT INTO student_statement_signatures (
   id, student_id, statement_version, statement_hash, signed_name,
-  ip_address, user_agent, signed_at, created_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  signature_image, ip_address, user_agent, signed_at, created_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 ON CONFLICT(student_id, statement_version) DO NOTHING`;
 
 function sniffMime(bytes: Uint8Array): string | null {
@@ -219,9 +237,9 @@ async function selectSignature(
 }
 
 async function selectDeductionRate(studentId: string): Promise<number | null> {
-  const row = (await db
-    .prepare(SELECT_LATEST_DEDUCTION_RATE)
-    .get(studentId)) as { payroll_deduction_rate: number } | undefined;
+  const row = (await db.prepare(SELECT_LATEST_DEDUCTION_RATE).get(studentId)) as
+    | { payroll_deduction_rate: number }
+    | undefined;
   return row?.payroll_deduction_rate ?? null;
 }
 
@@ -277,9 +295,9 @@ export async function saveStudentDocument(input: {
     entityId: profile.id,
     after: { kind, mime, byteSize: input.bytes.length, sha256: digest },
   });
-  const stored = (await db
-    .prepare(SELECT_DOCUMENT_ID)
-    .get(profile.id, kind)) as { id: string } | undefined;
+  const stored = (await db.prepare(SELECT_DOCUMENT_ID).get(profile.id, kind)) as
+    | { id: string }
+    | undefined;
   if (stored === undefined) return { ok: false, code: "invalid_kind" };
   return {
     ok: true,
@@ -293,6 +311,21 @@ export async function saveStudentDocument(input: {
   };
 }
 
+function statementInputOf(
+  profile: StatementProfileRow,
+  deductionRate: number | null,
+): StatementInput {
+  return {
+    fullName: profile.full_name,
+    institutionName: profile.institution_name,
+    academicStatus: profile.academic_status,
+    currentSemester: profile.current_semester,
+    city: profile.city,
+    province: profile.province,
+    deductionRate,
+  };
+}
+
 export async function getMyStatement(): Promise<StatementState | null> {
   const user = await getCurrentUser();
   if (user === null) return null;
@@ -300,20 +333,24 @@ export async function getMyStatement(): Promise<StatementState | null> {
   if (profile === null) return null;
   const deductionRate = await selectDeductionRate(profile.id);
   const signature = await selectSignature(profile.id);
-  const statementInput: StatementInput = {
-    fullName: profile.full_name,
-    institutionName: profile.institution_name,
-    academicStatus: profile.academic_status,
-    currentSemester: profile.current_semester,
-    city: profile.city,
-    deductionRate,
-  };
+  const issuedAt = signature?.signed_at ?? new Date().toISOString();
+  const issuedPlain = jakartaPlainDateOf(new Date(issuedAt));
+  const year = Number((issuedPlain ?? issuedAt.slice(0, 10)).slice(0, 4));
+  const input = statementInputOf(profile, deductionRate);
   return {
     title: STATEMENT_TITLE,
     version: STATEMENT_VERSION,
-    paragraphs: buildStatementParagraphs(statementInput),
+    documentNumber: statementDocumentNumber(profile.id, year),
+    identityRows: buildStatementIdentity(input),
+    clauses: buildStatementClauses(input),
+    closing: buildStatementClosing(),
+    issuedAt,
     signedAt: signature?.signed_at ?? null,
     signedName: signature?.signed_name ?? null,
+    signatureImage:
+      signature?.signature_image == null
+        ? null
+        : `${SIGNATURE_PNG_PREFIX}${signature.signature_image}`,
     statementHash: signature?.statement_hash ?? null,
     fullName: profile.full_name,
     city: profile.city,
@@ -321,7 +358,7 @@ export async function getMyStatement(): Promise<StatementState | null> {
 }
 
 export async function signMyStatement(input: {
-  readonly signedName: string;
+  readonly signaturePng: Uint8Array;
 }): Promise<SignStatementResult> {
   const user = await getCurrentUser();
   if (user === null) return { ok: false, code: "profile_incomplete" };
@@ -330,22 +367,23 @@ export async function signMyStatement(input: {
   if ((await selectSignature(profile.id)) !== null) {
     return { ok: false, code: "already_signed" };
   }
-  const typed = input.signedName.trim().replace(/\s+/g, " ");
-  const expected = profile.full_name.trim().replace(/\s+/g, " ");
-  if (typed.toLowerCase() !== expected.toLowerCase()) {
-    return { ok: false, code: "name_mismatch" };
+  const bytes = input.signaturePng;
+  if (
+    bytes.length < MIN_SIGNATURE_BYTES ||
+    bytes.length > MAX_SIGNATURE_BYTES ||
+    sniffMime(bytes) !== "image/png"
+  ) {
+    return { ok: false, code: "invalid_signature" };
   }
-  const deductionRate = await selectDeductionRate(profile.id);
-  const canonical = buildStatementCanonical({
-    fullName: profile.full_name,
-    institutionName: profile.institution_name,
-    academicStatus: profile.academic_status,
-    currentSemester: profile.current_semester,
-    city: profile.city,
-    deductionRate,
-  });
   const occurredAt = new Date();
   const stamp = occurredAt.toISOString();
+  const plain = jakartaPlainDateOf(occurredAt);
+  const year = Number((plain ?? stamp.slice(0, 10)).slice(0, 4));
+  const deductionRate = await selectDeductionRate(profile.id);
+  const canonical = buildStatementCanonical({
+    ...statementInputOf(profile, deductionRate),
+    documentNumber: statementDocumentNumber(profile.id, year),
+  });
   const digest = sha256Hex(new TextEncoder().encode(canonical));
   await db
     .prepare(INSERT_SIGNATURE)
@@ -354,7 +392,8 @@ export async function signMyStatement(input: {
       profile.id,
       STATEMENT_VERSION,
       digest,
-      typed,
+      profile.full_name,
+      Buffer.from(bytes).toString("base64"),
       null,
       null,
       stamp,
@@ -366,7 +405,11 @@ export async function signMyStatement(input: {
     action: "student.statement_signed",
     entityType: "student_statement",
     entityId: profile.id,
-    after: { version: STATEMENT_VERSION, statementHash: digest },
+    after: {
+      version: STATEMENT_VERSION,
+      statementHash: digest,
+      signature: "drawn",
+    },
   });
   return { ok: true, signedAt: stamp };
 }

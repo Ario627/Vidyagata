@@ -677,6 +677,7 @@ CREATE TABLE IF NOT EXISTS student_statement_signatures (
   statement_version text NOT NULL CHECK (length(statement_version) >= 1),
   statement_hash text NOT NULL CHECK (length(statement_hash) = 64),
   signed_name text NOT NULL CHECK (length(trim(signed_name)) >= 3),
+  signature_image text CHECK (signature_image IS NULL OR length(signature_image) <= 140000),
   ip_address text,
   user_agent text,
   signed_at timestamptz NOT NULL,
@@ -693,9 +694,27 @@ FOR EACH ROW EXECUTE FUNCTION vg_block_immutable();
 CREATE OR REPLACE TRIGGER student_statement_signatures_immutable_delete
 BEFORE DELETE ON student_statement_signatures
 FOR EACH ROW EXECUTE FUNCTION vg_block_immutable();
-
-ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "totpLastCodeHash" text;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS address_line text;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS hobby text;
-ALTER TABLE students ADD COLUMN IF NOT EXISTS bio text;
 `;
+
+export type PostgresAdditiveMigration = {
+  readonly version: string;
+  readonly statements: string;
+};
+
+export const POSTGRES_ADDITIVE_MIGRATIONS: readonly PostgresAdditiveMigration[] =
+  [
+    {
+      version: "0003_additive_user_totp_hash",
+      statements: `ALTER TABLE "user" ADD COLUMN IF NOT EXISTS "totpLastCodeHash" text;`,
+    },
+    {
+      version: "0004_additive_student_profile",
+      statements: `ALTER TABLE students ADD COLUMN IF NOT EXISTS address_line text;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS hobby text;
+ALTER TABLE students ADD COLUMN IF NOT EXISTS bio text;`,
+    },
+    {
+      version: "0005_additive_statement_signature_image",
+      statements: `ALTER TABLE student_statement_signatures ADD COLUMN IF NOT EXISTS signature_image text;`,
+    },
+  ];

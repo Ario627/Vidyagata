@@ -216,3 +216,14 @@
     animation: rise-in 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm 18mm;
+  }
+
+  body {
+    background: #ffffff;
+  }
+}

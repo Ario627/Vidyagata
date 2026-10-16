@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS student_statement_signatures (
   statement_version TEXT NOT NULL CHECK (length(statement_version) >= 1),
   statement_hash TEXT NOT NULL CHECK (length(statement_hash) = 64),
   signed_name TEXT NOT NULL CHECK (length(trim(signed_name)) >= 3),
+  signature_image TEXT CHECK (signature_image IS NULL OR length(signature_image) <= 140000),
   ip_address TEXT,
   user_agent TEXT,
   signed_at TEXT NOT NULL,

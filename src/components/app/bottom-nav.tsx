@@ -39,7 +39,7 @@ function BottomNav({ className }: { className?: string }) {
       data-slot="bottom-nav"
       aria-label="Navigasi utama"
       className={cn(
-        "sticky bottom-0 z-40 border-border border-t bg-surface pb-safe",
+        "sticky bottom-0 z-40 border-border border-t bg-surface pb-safe print:hidden",
         className,
       )}
     >

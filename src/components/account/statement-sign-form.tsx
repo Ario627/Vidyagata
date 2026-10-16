@@ -2,49 +2,58 @@
 
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
+import { SignaturePad } from "@/components/account/signature-pad";
 import { Button } from "@/components/ui/button";
-import { TextField } from "@/components/ui/field";
 
 type StatementSignFormProps = {
-  readonly fullName: string;
   readonly onSigned?: () => void;
 };
 
-function StatementSignForm({ fullName, onSigned }: StatementSignFormProps) {
+type SignResponse = {
+  ok?: boolean;
+  message?: string;
+  fieldError?: string;
+};
+
+function StatementSignForm({ onSigned }: StatementSignFormProps) {
   const router = useRouter();
-  const [signedName, setSignedName] = useState("");
+  const [signatureImage, setSignatureImage] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
-  const [nameError, setNameError] = useState<string | null>(null);
+  const [signatureError, setSignatureError] = useState<string | null>(null);
   const [formIssue, setFormIssue] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending) return;
+    if (signatureImage === null) {
+      setSignatureError("Gambar tanda tanganmu dulu di kotak yang tersedia.");
+      return;
+    }
     if (!agreed) {
       setFormIssue(
         "Centang pernyataan persetujuan dulu sebelum menandatangani.",
       );
       return;
     }
+    setSignatureError(null);
     setFormIssue(null);
-    setNameError(null);
     setPending(true);
-    let result: { ok?: boolean; message?: string; fieldError?: string } = {};
+    let result: SignResponse = {};
     try {
       const response = await fetch("/api/statement", {
         method: "POST",
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ signedName }),
+        body: JSON.stringify({ signatureImage }),
       });
-      result = (await response.json()) as typeof result;
+      result = (await response.json()) as SignResponse;
     } catch {
       result = { ok: false, message: "Koneksi terputus. Coba lagi." };
     }
     setPending(false);
     if (result.ok !== true) {
-      if (result.fieldError !== undefined) setNameError(result.fieldError);
+      if (result.fieldError !== undefined) setSignatureError(result.fieldError);
       if (result.message !== undefined) setFormIssue(result.message);
       return;
     }
@@ -57,19 +66,18 @@ function StatementSignForm({ fullName, onSigned }: StatementSignFormProps) {
 
   return (
     <form noValidate onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <TextField
-        label="Tulis nama lengkapmu sebagai tanda tangan"
-        name="signedName"
-        autoComplete="name"
-        placeholder={fullName}
-        value={signedName}
-        onChange={(event) => {
-          setSignedName(event.target.value);
-          if (nameError !== null) setNameError(null);
+      <SignaturePad
+        onChange={(value) => {
+          setSignatureImage(value);
+          if (signatureError !== null) setSignatureError(null);
         }}
-        error={nameError ?? undefined}
-        description="Nama harus sama persis dengan nama di profilmu."
+        disabled={pending}
       />
+      {signatureError === null ? null : (
+        <p role="alert" className="text-sm text-danger">
+          {signatureError}
+        </p>
+      )}
       <label className="flex items-start gap-2.5 text-sm leading-6 text-foreground">
         <input
           type="checkbox"
@@ -89,11 +97,11 @@ function StatementSignForm({ fullName, onSigned }: StatementSignFormProps) {
         </p>
       )}
       <Button type="submit" size="lg" className="w-full" disabled={pending}>
-        {pending ? "Menandatangani..." : "Tandatangani elektronik"}
+        {pending ? "Menyimpan tanda tangan..." : "Tandatangani surat"}
       </Button>
       <p className="text-2xs leading-4 text-foreground-subtle">
-        Tanda tangan elektronik ini tercatat di sistem bersama waktu, versi
-        surat, dan kode verifikasi — dan tidak bisa diubah setelah tersimpan.
+        Tanda tangan tersimpan bersama waktu, versi surat, dan kode verifikasi —
+        dan tidak bisa diubah setelah tersimpan.
       </p>
     </form>
   );

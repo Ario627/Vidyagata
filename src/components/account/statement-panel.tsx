@@ -113,7 +113,7 @@ function StatementPanel({ onSigned }: StatementPanelProps) {
           <p className="text-xs leading-5 text-foreground-muted">
             {signed
               ? `Ditandatangani oleh ${state.signedName ?? ""}.`
-              : "Baca suratnya, lalu tanda tangani secara elektronik."}
+              : "Baca suratnya, lalu gambar tanda tanganmu langsung di sini."}
           </p>
         </div>
         <Badge variant={signed ? "success" : "warning"}>
@@ -122,8 +122,8 @@ function StatementPanel({ onSigned }: StatementPanelProps) {
       </CardContent>
       <CardContent className="pt-0">
         <DialogRoot open={open} onOpenChange={setOpen}>
-          <DialogTrigger className="w-full rounded-md border border-border-strong bg-surface text-sm font-medium text-foreground transition-colors duration-150 ease-out hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary h-11 px-4">
-            {signed ? "Lihat surat" : "Baca & tanda tangani"}
+          <DialogTrigger className="h-11 w-full rounded-md border border-border-strong bg-surface px-4 text-sm font-medium text-foreground transition-colors duration-150 ease-out hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+            {signed ? "Lihat surat" : "Baca surat & tanda tangan"}
           </DialogTrigger>
           <DialogContent>
             <div className="flex items-start justify-between gap-4">
@@ -134,7 +134,6 @@ function StatementPanel({ onSigned }: StatementPanelProps) {
               <StatementBody state={state} />
               {signed ? null : (
                 <StatementSignForm
-                  fullName={state.fullName}
                   onSigned={() => {
                     setOpen(false);
                     reload();
