@@ -20,7 +20,7 @@ export default async function OperatorSecurityPage() {
       <PageHeader
         eyebrow="Operator"
         title="Keamanan akun"
-        description="Verifikasi dua langkah opsional — aktifkan supaya kata sandi saja tidak cukup untuk masuk ke konsol operator."
+        description="Verifikasi dua langkah opsional sepenuhnya: nyalakan kalau kamu mau lapisan ekstra, dan matikan lagi kapan saja tanpa izin siapa pun."
       />
       <ClockSkewNotice serverNow={new Date().toISOString()} />
       <TwoFactorSetup

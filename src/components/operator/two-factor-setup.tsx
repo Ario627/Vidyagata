@@ -59,6 +59,17 @@ function verifyIssueMessage(issue: AuthIssue): string {
   }
 }
 
+function disableIssueMessage(issue: AuthIssue): string {
+  switch (issue.code) {
+    case "INVALID_PASSWORD":
+      return "Kata sandi tidak cocok.";
+    case "TOO_MANY_REQUESTS":
+      return "Terlalu banyak percobaan. Tunggu sebentar lalu coba lagi.";
+    default:
+      return issue.message ?? GENERIC_MESSAGE;
+  }
+}
+
 function secretFromUri(uri: string): string {
   try {
     return new URL(uri).searchParams.get("secret") ?? "";
@@ -97,6 +108,10 @@ function EnabledPanel({ scope }: { readonly scope: "operator" | "personal" }) {
           ? "Setiap masuk ke akun operator ini butuh kode dari aplikasi autentikatormu. Kode pemulihan hanya tampil saat pengaturan awal — kalau hilang, minta admin mengatur ulang."
           : "Setiap masuk ke akunmu sekarang butuh kode dari aplikasi autentikator. Kode pemulihan hanya tampil saat pengaturan awal — simpan di tempat aman."}
       </p>
+      <p className="text-2xs leading-4 text-foreground-subtle">
+        Berubah pikiran? kamu bisa mematikannya lagi kapan saja dari halaman
+        ini.
+      </p>
     </div>
   );
 }
@@ -117,6 +132,13 @@ function TwoFactorSetup({
   const [codeIssue, setCodeIssue] = useState<string | null>(null);
   const [pending, setPending] = useState<"enable" | "verify" | null>(null);
   const [confirmed, setConfirmed] = useState(false);
+  const [disableOpen, setDisableOpen] = useState(false);
+  const [disablePassword, setDisablePassword] = useState("");
+  const [disablePasswordError, setDisablePasswordError] = useState<
+    string | null
+  >(null);
+  const [disableIssue, setDisableIssue] = useState<string | null>(null);
+  const [disablePending, setDisablePending] = useState(false);
 
   async function handleEnable(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -157,8 +179,110 @@ function TwoFactorSetup({
     router.refresh();
   }
 
+  async function handleDisable(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (disablePending) return;
+    const nextPasswordError =
+      disablePassword.length === 0 ? "Kata sandi wajib diisi" : null;
+    setDisablePasswordError(nextPasswordError);
+    if (nextPasswordError !== null) return;
+    setDisableIssue(null);
+    setDisablePending(true);
+    const { error } = await authClient.twoFactor.disable({
+      password: disablePassword,
+    });
+    setDisablePending(false);
+    if (error) {
+      setDisableIssue(disableIssueMessage(error));
+      return;
+    }
+    setDisablePassword("");
+    setDisableOpen(false);
+    router.refresh();
+  }
+
   if (enabled || confirmed) {
-    return <EnabledPanel scope={scope} />;
+    return (
+      <div className="flex flex-col gap-4">
+        <EnabledPanel scope={scope} />
+        {enabled ? (
+          disableOpen ? (
+            <form
+              noValidate
+              onSubmit={handleDisable}
+              className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4"
+            >
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-semibold text-foreground">
+                  Matikan verifikasi dua langkah
+                </p>
+                <p className="text-sm leading-6 text-foreground-muted">
+                  Setelah dimatikan, masuk ke akun ini cukup dengan kata sandi.
+                  Kamu bisa mengaktifkannya lagi kapan saja.
+                </p>
+              </div>
+              <TextField
+                label="Kata sandi"
+                name="disable-password"
+                type="password"
+                autoComplete="current-password"
+                placeholder="Kata sandimu"
+                description="Dipakai untuk mengonfirmasi bahwa ini benar kamu."
+                value={disablePassword}
+                onChange={(event) => {
+                  setDisablePassword(event.target.value);
+                  if (disablePasswordError !== null) {
+                    setDisablePasswordError(null);
+                  }
+                }}
+                error={disablePasswordError ?? undefined}
+              />
+              {disableIssue === null ? null : (
+                <p role="alert" className="text-sm text-danger">
+                  {disableIssue}
+                </p>
+              )}
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="md"
+                  className="flex-1"
+                  disabled={disablePending}
+                  onClick={() => {
+                    setDisableOpen(false);
+                    setDisablePassword("");
+                    setDisableIssue(null);
+                    setDisablePasswordError(null);
+                  }}
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="submit"
+                  variant="destructive"
+                  size="md"
+                  className="flex-1"
+                  disabled={disablePending}
+                >
+                  {disablePending ? "Mematikan..." : "Ya, matikan"}
+                </Button>
+              </div>
+            </form>
+          ) : (
+            <Button
+              type="button"
+              variant="secondary"
+              size="md"
+              className="w-full"
+              onClick={() => setDisableOpen(true)}
+            >
+              Matikan verifikasi dua langkah
+            </Button>
+          )
+        ) : null}
+      </div>
+    );
   }
 
   if (scan === null) {
