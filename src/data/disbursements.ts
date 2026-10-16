@@ -62,6 +62,7 @@ export type PencairanDetail = {
   readonly requestedAmount: Rupiah | null;
   readonly approvedAmount: Rupiah | null;
   readonly tenorMonths: number | null;
+  readonly maxTenorMonths: number | null;
   readonly marginRateBp: number | null;
   readonly serviceFeeRateBp: number | null;
   readonly institutionName: string | null;
@@ -180,7 +181,7 @@ LIMIT 5`;
 
 const RECORD_LENDER_APPROVAL = `UPDATE financing_facilities
 SET status = 'approved', approved_at = ?, approved_amount = ?,
-  annual_margin_rate_bp = ?, service_fee_rate_bp = ?
+  tenor_months = ?, annual_margin_rate_bp = ?, service_fee_rate_bp = ?
 WHERE id = ? AND status = 'forwarded_to_lender'`;
 
 const RECORD_LENDER_REJECTION = `UPDATE financing_facilities
@@ -348,6 +349,7 @@ export async function getPencairanDetail(
   const requests = await selectRequestRows(database, facilityId);
   const views = requests.map((request) => toRequestView(request, actor.id));
   const latestRequest = views[0] ?? null;
+  const terms = await getPilotLenderTerms();
   return {
     facilityId: row.id,
     publicRef: row.public_ref,
@@ -357,6 +359,7 @@ export async function getPencairanDetail(
     approvedAmount:
       row.approved_amount === null ? null : rupiah(row.approved_amount),
     tenorMonths: row.tenor_months,
+    maxTenorMonths: terms?.maxTenorMonths ?? null,
     marginRateBp: row.annual_margin_rate_bp,
     serviceFeeRateBp: row.service_fee_rate_bp,
     institutionName: row.institution_name,
@@ -381,6 +384,7 @@ export async function recordLenderDecision(input: {
   readonly facilityId: string;
   readonly decision: DisbursementDecision;
   readonly reason?: string | undefined;
+  readonly tenorMonths?: number | undefined;
 }): Promise<OperatorWriteResult> {
   const actor = await requireRole("operator");
   const database = db;
@@ -421,8 +425,16 @@ export async function recordLenderDecision(input: {
   }
   const terms = await getPilotLenderTerms();
   if (terms === null) return { ok: false, code: "lender_unavailable" };
-  if (row.requested_amount === null || row.tenor_months === null) {
+  if (row.requested_amount === null) {
     return { ok: false, code: "facility_incomplete" };
+  }
+  const tenorMonths = input.tenorMonths ?? row.tenor_months;
+  if (
+    tenorMonths === null ||
+    tenorMonths < 1 ||
+    tenorMonths > terms.maxTenorMonths
+  ) {
+    return { ok: false, code: "invalid_tenor" };
   }
   const prepared = await prepareAudit({
     actorType: "operator",
@@ -434,6 +446,7 @@ export async function recordLenderDecision(input: {
     after: {
       status: "approved",
       approved_amount: row.requested_amount,
+      tenor_months: tenorMonths,
       annual_margin_rate_bp: terms.marginRateBp,
       service_fee_rate_bp: terms.serviceFeeRateBp,
     },
@@ -446,6 +459,7 @@ export async function recordLenderDecision(input: {
         .run(
           occurredAt.toISOString(),
           row.requested_amount,
+          tenorMonths,
           terms.marginRateBp,
           terms.serviceFeeRateBp,
           input.facilityId,

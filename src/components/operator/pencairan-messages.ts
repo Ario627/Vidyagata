@@ -1,5 +1,7 @@
 const PENCAIRAN_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   invalid_input: "Data yang dikirim tidak valid.",
+  invalid_tenor:
+    "Pilih tenor antara 1 sampai batas maksimal mitra sebelum menyetujui.",
   facility_not_found: "Pengajuan tidak ditemukan.",
   invalid_transition:
     "Tahap pembiayaan sudah berubah. Muat ulang lalu coba lagi.",

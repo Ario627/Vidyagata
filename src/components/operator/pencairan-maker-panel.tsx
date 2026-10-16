@@ -35,6 +35,10 @@ type MakerSheet =
 
 const DEDUCTION_RATE_OPTIONS = [20, 40, 60] as const;
 
+const TENOR_OPTIONS = [12, 24, 36, 48, 60] as const;
+
+const DEFAULT_TENOR_MONTHS = 24;
+
 type DeductionRate = (typeof DEDUCTION_RATE_OPTIONS)[number];
 
 const INPUT_CLASS =
@@ -66,11 +70,21 @@ function MakerPanel({ detail }: MakerPanelProps) {
   const [agreementNote, setAgreementNote] = useState("");
   const [transferReference, setTransferReference] = useState("");
   const [deductionRate, setDeductionRate] = useState<DeductionRate>(20);
+  const [tenorMonths, setTenorMonths] = useState<number>(
+    detail.tenorMonths ?? DEFAULT_TENOR_MONTHS,
+  );
 
   const { permissions, latestRequest } = detail;
+  const maxTenorMonths = detail.maxTenorMonths;
+  const tenorChoices = TENOR_OPTIONS.filter(
+    (option) => maxTenorMonths === null || option <= maxTenorMonths,
+  );
 
   function openSheet(next: MakerSheet) {
     setError(null);
+    if (next === "lender-approve") {
+      setTenorMonths(detail.tenorMonths ?? DEFAULT_TENOR_MONTHS);
+    }
     setSheet(next);
   }
 
@@ -80,6 +94,7 @@ function MakerPanel({ detail }: MakerPanelProps) {
         return recordLenderDecisionAction({
           facilityId: detail.facilityId,
           decision: "approved",
+          tenorMonths,
         });
       case "lender-reject":
         return recordLenderDecisionAction({
@@ -250,12 +265,39 @@ function MakerPanel({ detail }: MakerPanelProps) {
           {detail.requestedAmount === null
             ? "belum ada"
             : formatIDR(detail.requestedAmount)}
-          . Tenor {detail.tenorMonths ?? "-"} bulan.
+          . Margin dan service fee mengikuti parameter mitra yang berlaku —
+          bukan angka yang bisa diubah dari sini.
         </p>
-        <p>
-          Margin dan service fee mengikuti parameter mitra pembiayaan yang
-          berlaku — bukan angka yang bisa diubah dari sini.
-        </p>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-foreground">
+            Tenor yang disetujui mitra
+          </span>
+          <div className="flex flex-wrap items-center gap-2">
+            {tenorChoices.map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={tenorMonths === option}
+                onClick={() => setTenorMonths(option)}
+                className={cn(
+                  "min-w-14 rounded-lg border px-3 py-2 text-sm font-medium tabular-nums transition-colors duration-150 ease-out",
+                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                  tenorMonths === option
+                    ? "border-primary bg-primary-subtle text-foreground"
+                    : "border-border bg-surface text-foreground-muted hover:border-border-strong",
+                )}
+              >
+                {option} bln
+              </button>
+            ))}
+          </div>
+          <span className="text-2xs leading-4 text-foreground-subtle">
+            Tenor final ditentukan di sini dan dipakai untuk jadwal cicilan —
+            {maxTenorMonths === null
+              ? " batas maksimal mitra belum terbaca."
+              : ` maksimal ${maxTenorMonths} bulan sesuai parameter mitra.`}
+          </span>
+        </div>
       </PencairanDialog>
 
       <PencairanDialog

@@ -29,6 +29,11 @@ export async function recordLenderDecisionAction(
       facilityId: FacilityIdInput,
       decision: z.enum(["approved", "rejected"]),
       reason: ReasonInput.optional(),
+      tenorMonths: z
+        .int()
+        .min(1, { error: "Tenor minimal 1 bulan" })
+        .max(360, { error: "Tenor maksimal 360 bulan" })
+        .optional(),
     })
     .strict()
     .safeParse(input);

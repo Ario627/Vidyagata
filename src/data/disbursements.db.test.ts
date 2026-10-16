@@ -65,7 +65,12 @@ function pilotLenderId(): string {
   return row.id;
 }
 
-function insertFacility(id: string, studentId: string, status: string) {
+function insertFacility(
+  id: string,
+  studentId: string,
+  status: string,
+  tenorMonths: number | null = 12,
+) {
   const approved = status === "approved" || status === "signed";
   const signed = status === "signed";
   openAuthDatabase()
@@ -75,7 +80,7 @@ function insertFacility(id: string, studentId: string, status: string) {
         scheme_type, academic_purpose, requested_amount, approved_amount,
         tenor_months, annual_margin_rate_bp, service_fee_rate_bp,
         submitted_at, approved_at, signed_at, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, 'inst-pc-1', ?, 'vidyafund', 'tuition', ?, ?, 12, 1200, 200, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, 'inst-pc-1', ?, 'vidyafund', 'tuition', ?, ?, ?, 1200, 200, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -85,6 +90,7 @@ function insertFacility(id: string, studentId: string, status: string) {
       status,
       AMOUNT,
       approved ? AMOUNT : null,
+      tenorMonths,
       SUBMITTED_AT,
       approved ? APPROVED_AT : null,
       signed ? SIGNED_AT : null,
@@ -110,7 +116,7 @@ beforeAll(async () => {
   insertUser("officer-b", "Petugas B");
   grantOperator("officer-a");
   grantOperator("officer-b");
-  for (let index = 1; index <= 6; index += 1) {
+  for (let index = 1; index <= 8; index += 1) {
     const suffix = index.toString().padStart(6, "0");
     insertUser(`student-user-${suffix}`, `Mahasiswa ${suffix}`);
     insertStudent(`pc-student-${suffix}`, `student-user-${suffix}`);
@@ -121,6 +127,18 @@ beforeAll(async () => {
   insertFacility("pcfac-000004", "pc-student-000004", "signed");
   insertFacility("pcfac-000005", "pc-student-000005", "signed");
   insertFacility("pcfac-000006", "pc-student-000006", "signed");
+  insertFacility(
+    "pcfac-000007",
+    "pc-student-000007",
+    "forwarded_to_lender",
+    null,
+  );
+  insertFacility(
+    "pcfac-000008",
+    "pc-student-000008",
+    "forwarded_to_lender",
+    null,
+  );
 });
 
 afterAll(() => {
@@ -177,6 +195,53 @@ describe("recordLenderDecision", () => {
     expect(row.annual_margin_rate_bp).toBe(1200);
     expect(row.service_fee_rate_bp).toBe(200);
     expect(row.approved_at).not.toBeNull();
+  });
+
+  it("menolak persetujuan tanpa tenor saat fasilitas belum punya tenor", async () => {
+    asOfficer("officer-a");
+    const result = await recordLenderDecision({
+      facilityId: "pcfac-000007",
+      decision: "approved",
+    });
+    expect(result).toEqual({ ok: false, code: "invalid_tenor" });
+  });
+
+  it("menyimpan tenor keputusan mitra dan memakainya untuk jadwal cicilan", async () => {
+    asOfficer("officer-a");
+    const result = await recordLenderDecision({
+      facilityId: "pcfac-000007",
+      decision: "approved",
+      tenorMonths: 24,
+    });
+    expect(result.ok).toBe(true);
+    const row = openAuthDatabase()
+      .prepare(
+        "SELECT status, tenor_months, approved_amount FROM financing_facilities WHERE id = ?",
+      )
+      .get("pcfac-000007") as {
+      status: string;
+      tenor_months: number | null;
+      approved_amount: number | null;
+    };
+    expect(row.status).toBe("approved");
+    expect(row.tenor_months).toBe(24);
+    expect(row.approved_amount).toBe(AMOUNT);
+    const audit = openAuthDatabase()
+      .prepare(
+        "SELECT after_json FROM audit_logs WHERE entity_id = ? AND action = 'financing.status_changed' ORDER BY occurred_at DESC LIMIT 1",
+      )
+      .get("pcfac-000007") as { after_json: string };
+    expect(audit.after_json).toContain('"tenor_months":24');
+  });
+
+  it("menolak tenor di atas batas mitra", async () => {
+    asOfficer("officer-a");
+    const result = await recordLenderDecision({
+      facilityId: "pcfac-000008",
+      decision: "approved",
+      tenorMonths: 120,
+    });
+    expect(result).toEqual({ ok: false, code: "invalid_tenor" });
   });
 });
 
