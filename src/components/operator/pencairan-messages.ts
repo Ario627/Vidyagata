@@ -1,7 +1,5 @@
 const PENCAIRAN_ERROR_MESSAGES: Readonly<Record<string, string>> = {
   invalid_input: "Data yang dikirim tidak valid.",
-  mfa_required:
-    "Aktifkan verifikasi dua langkah di halaman Keamanan sebelum menjalankan aksi ini.",
   facility_not_found: "Pengajuan tidak ditemukan.",
   invalid_transition:
     "Tahap pembiayaan sudah berubah. Muat ulang lalu coba lagi.",

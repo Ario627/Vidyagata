@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { openAuthDatabase } from "@/lib/db/sqlite";
-import { isTwoFactorEnabled, requireOperatorMfa } from "./two-factor";
+import { isTwoFactorEnabled } from "./two-factor";
 
 const session = vi.hoisted(() => ({ userId: "user-mfa-1" }));
 
@@ -55,25 +55,5 @@ describe("isTwoFactorEnabled", () => {
 
   it("mengembalikan false untuk akun yang tidak ada", async () => {
     expect(await isTwoFactorEnabled("user-ghost")).toBe(false);
-  });
-});
-
-describe("requireOperatorMfa", () => {
-  it("membiarkan operator dengan dua langkah aktif melewati gate", async () => {
-    openAuthDatabase()
-      .prepare("UPDATE user SET twoFactorEnabled = 1 WHERE id = ?")
-      .run("user-mfa-1");
-    const { actor, mfaRequired } = await requireOperatorMfa();
-    expect(actor.id).toBe("user-mfa-1");
-    expect(mfaRequired).toBe(false);
-  });
-
-  it("menandai operator tanpa dua langkah sebagai wajib mendaftar", async () => {
-    openAuthDatabase()
-      .prepare("UPDATE user SET twoFactorEnabled = 0 WHERE id = ?")
-      .run("user-mfa-1");
-    const { actor, mfaRequired } = await requireOperatorMfa();
-    expect(actor.id).toBe("user-mfa-1");
-    expect(mfaRequired).toBe(true);
   });
 });

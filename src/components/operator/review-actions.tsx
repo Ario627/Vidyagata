@@ -22,8 +22,6 @@ const ACTION_MESSAGES: Readonly<Record<string, string>> = {
   reason_required: "Isi alasan dulu untuk keputusan ini.",
   lender_unavailable: "Belum ada mitra pembiayaan aktif.",
   eligibility_unavailable: "Penilaian kelayakan tidak tersedia.",
-  mfa_required:
-    "Aktifkan verifikasi dua langkah di halaman Keamanan sebelum mengambil keputusan.",
 };
 
 function messageFor(code: string): string {

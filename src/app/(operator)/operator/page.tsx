@@ -5,7 +5,6 @@ import { buttonVariants } from "@/components/ui/button-variants";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireRole } from "@/data/dal";
 import { listReviewQueue } from "@/data/operator";
-import { isTwoFactorEnabled } from "@/data/two-factor";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -15,31 +14,8 @@ export const metadata: Metadata = {
 
 export const instant = false;
 
-function MfaSuggestionCard() {
-  return (
-    <Card className="mt-4">
-      <CardContent className="flex flex-col gap-3">
-        <p className="text-sm font-semibold text-foreground">
-          Verifikasi dua langkah belum aktif
-        </p>
-        <p className="text-xs leading-5 text-foreground-muted">
-          Opsional, tapi sangat disarankan: dengan 2FA, kata sandi yang bocor
-          saja tidak cukup untuk masuk ke konsol operator.
-        </p>
-        <Link
-          href={"/operator/keamanan" as Route}
-          className={cn(buttonVariants({ variant: "secondary", size: "sm" }))}
-        >
-          Aktifkan sekarang
-        </Link>
-      </CardContent>
-    </Card>
-  );
-}
-
 export default async function OperatorHomePage() {
-  const actor = await requireRole("operator");
-  const twoFactorOn = await isTwoFactorEnabled(actor.id);
+  await requireRole("operator");
   const queue = await listReviewQueue();
   const pending = queue.filter((item) => item.status === "submitted").length;
   const inReview = queue.filter(
@@ -82,7 +58,6 @@ export default async function OperatorHomePage() {
           </Link>
         </CardContent>
       </Card>
-      {twoFactorOn ? null : <MfaSuggestionCard />}
     </main>
   );
 }

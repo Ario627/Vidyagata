@@ -15,8 +15,6 @@ const CLAIM_MESSAGES: Readonly<Record<string, string>> = {
   facility_not_found:
     "Pengajuan tidak ditemukan atau sudah ditangani petugas lain.",
   invalid_transition: "Pengajuan ini sudah ditangani petugas lain.",
-  mfa_required:
-    "Aktifkan verifikasi dua langkah di halaman Keamanan sebelum meninjau pengajuan.",
 };
 
 function ClaimFacility({ facilityId }: ClaimFacilityProps) {
