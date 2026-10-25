@@ -125,7 +125,7 @@ export default async function PencairanQueuePage() {
   await requireRole("operator");
   const queue = await listPencairanQueue();
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
+    <main className="mx-auto flex w-full max-w-[76rem] flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <PageHeader
         title="Pencairan"
         description="Alur setelah peninjauan: keputusan mitra, perjanjian, lalu dana cair ke rekening kampus. Satu petugas mengajukan, petugas lain menyetujui."

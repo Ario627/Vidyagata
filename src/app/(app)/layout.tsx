@@ -1,14 +1,13 @@
-import { BottomNav } from "@/components/app/bottom-nav";
+import { AppShell } from "@/components/app/app-shell";
 import { requireUser } from "@/lib/session";
 
 export const instant = false;
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
-  await requireUser();
+  const user = await requireUser();
   return (
-    <div className="flex min-h-full flex-1 flex-col">
+    <AppShell name={user.name} email={user.email}>
       {children}
-      <BottomNav className="mt-auto" />
-    </div>
+    </AppShell>
   );
 }

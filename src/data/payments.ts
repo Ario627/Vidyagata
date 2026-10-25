@@ -14,6 +14,7 @@ import { getCurrentUser } from "@/lib/session";
 import { appendAudit, prepareAudit } from "./audit";
 import { requireRole } from "./dal";
 import { sniffDocumentMime } from "./documents";
+import { appendLedgerEntry } from "./ledger";
 import { rolesOf } from "./roles";
 
 export type PaymentStatus = (typeof INSTALLMENT_PAYMENT_STATUSES)[number];
@@ -101,7 +102,25 @@ type PaymentRow = {
   installment_id: string;
   schedule_id: string;
   facility_id: string;
+  period_no: number;
+  amount: number;
   status: string;
+};
+
+export type PaymentReceipt = {
+  readonly id: string;
+  readonly amount: Rupiah;
+  readonly senderName: string;
+  readonly status: PaymentStatus;
+  readonly submittedAt: string;
+  readonly verifiedAt: string | null;
+  readonly proofSha256: string;
+  readonly periodNo: number;
+  readonly dueDate: string;
+  readonly tenorMonths: number;
+  readonly facilityPublicRef: string;
+  readonly institutionName: string | null;
+  readonly studentName: string;
 };
 
 const SELECT_INSTALLMENT_CONTEXT = `SELECT ins.id, ins.period_no,
@@ -142,10 +161,23 @@ WHERE p.status = 'submitted'
 ORDER BY p.submitted_at, p.id`;
 
 const SELECT_PAYMENT_FOR_REVIEW = `SELECT p.id, p.installment_id,
-  p.facility_id, ins.schedule_id, p.status
+  p.facility_id, ins.schedule_id, ins.period_no, p.amount, p.status
 FROM installment_payments p
 JOIN installments ins ON ins.id = p.installment_id
 WHERE p.id = ?`;
+
+const SELECT_PAYMENT_RECEIPT = `SELECT p.id, p.amount, p.sender_name,
+  p.status, p.submitted_at, p.verified_at, p.proof_sha256,
+  ins.period_no, ins.due_date, rs.tenor_months,
+  f.public_ref AS facility_public_ref,
+  i.name AS institution_name, s.full_name AS student_name
+FROM installment_payments p
+JOIN installments ins ON ins.id = p.installment_id
+JOIN repayment_schedules rs ON rs.id = ins.schedule_id
+JOIN financing_facilities f ON f.id = p.facility_id
+JOIN students s ON s.id = p.student_id
+LEFT JOIN institutions i ON i.id = f.institution_id
+WHERE p.id = ? AND s.user_id = ?`;
 
 const SELECT_PAYMENT_PROOF = `SELECT p.id, p.proof_mime, p.proof_data,
   s.user_id AS owner_user_id
@@ -400,6 +432,16 @@ export async function reviewPayment(input: {
         .prepare(SETTLE_INSTALLMENT)
         .run(stamp, payment.installment_id);
       if (settled.changes === 0) throw new Error("installment_already_settled");
+      await appendLedgerEntry(database, {
+        idempotencyKey: `repayment:${payment.id}`,
+        facilityId: payment.facility_id,
+        entryType: "repayment",
+        direction: "credit",
+        amount: payment.amount,
+        occurredAt: stamp,
+        recordedBy: actor.id,
+        memo: `Pembayaran cicilan periode ${payment.period_no}`,
+      });
       await appendAudit(database, prepared);
       const open = (await database
         .prepare(COUNT_OPEN_INSTALLMENTS)
@@ -435,6 +477,49 @@ export async function reviewPayment(input: {
     throw error;
   }
   return { ok: true };
+}
+
+export async function getMyPaymentReceipt(
+  paymentId: string,
+): Promise<PaymentReceipt | null> {
+  const user = await getCurrentUser();
+  if (user === null) return null;
+  const row = (await db
+    .prepare(SELECT_PAYMENT_RECEIPT)
+    .get(paymentId, user.id)) as
+    | {
+        id: string;
+        amount: number;
+        sender_name: string;
+        status: string;
+        submitted_at: string;
+        verified_at: string | null;
+        proof_sha256: string;
+        period_no: number;
+        due_date: string;
+        tenor_months: number;
+        facility_public_ref: string;
+        institution_name: string | null;
+        student_name: string;
+      }
+    | undefined;
+  if (row === undefined) return null;
+  if (!isPaymentStatus(row.status) || row.status !== "verified") return null;
+  return {
+    id: row.id,
+    amount: rupiah(row.amount),
+    senderName: row.sender_name,
+    status: row.status,
+    submittedAt: row.submitted_at,
+    verifiedAt: row.verified_at,
+    proofSha256: row.proof_sha256,
+    periodNo: row.period_no,
+    dueDate: row.due_date,
+    tenorMonths: row.tenor_months,
+    facilityPublicRef: row.facility_public_ref,
+    institutionName: row.institution_name,
+    studentName: row.student_name,
+  };
 }
 
 export async function readPaymentProofForViewer(input: {

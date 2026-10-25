@@ -16,7 +16,7 @@ export const instant = false;
 export default async function OperatorSecurityPage() {
   const actor = await requireRole("operator");
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col gap-5 px-4 py-6">
+    <main className="mx-auto flex w-full max-w-3xl flex-col gap-5 px-4 py-6 sm:px-6 lg:py-8">
       <PageHeader
         eyebrow="Operator"
         title="Keamanan akun"

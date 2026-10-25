@@ -1,8 +1,9 @@
 import { ShieldCheck } from "lucide-react";
 import type { Metadata, Route } from "next";
 import Link from "next/link";
+import { signOutAction } from "@/app/(app)/session-actions";
 import { ProfileDocuments } from "@/components/account/profile-documents";
-import { PageHeader } from "@/components/app/page-header";
+import { PageShell } from "@/components/app/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -31,7 +32,7 @@ const DATA_RIGHTS = [
 
 function DataRightsCard() {
   return (
-    <Card className="mt-6">
+    <Card className="gap-0 shadow-none">
       <CardContent className="flex items-center gap-2">
         <ShieldCheck
           aria-hidden="true"
@@ -63,7 +64,7 @@ function DataRightsCard() {
 
 function SecurityCard() {
   return (
-    <Card className="mt-6">
+    <Card className="gap-0 shadow-none">
       <CardContent>
         <CardTitle>Keamanan akun</CardTitle>
       </CardContent>
@@ -114,7 +115,7 @@ function formatGpa(hundredths: number): string {
 async function IdentityCard() {
   const identity = await getMyStudentIdentity();
   return (
-    <Card className="mt-6">
+    <Card className="gap-0 shadow-none">
       <CardContent>
         <CardTitle>Identitas akademik</CardTitle>
       </CardContent>
@@ -200,7 +201,7 @@ async function DocumentsCard() {
   const statementSigned = statement !== null && statement.signedAt !== null;
   const canUpload = identity !== null;
   return (
-    <Card className="mt-6">
+    <Card className="gap-0 shadow-none">
       <CardContent>
         <CardTitle>Dokumen & surat</CardTitle>
       </CardContent>
@@ -237,18 +238,48 @@ async function DocumentsCard() {
   );
 }
 
+function SignOutCard() {
+  return (
+    <Card className="gap-0 shadow-none">
+      <CardContent className="pb-3">
+        <CardTitle>Sesi perangkat</CardTitle>
+      </CardContent>
+      <CardContent className="flex flex-col gap-3">
+        <p className="text-xs leading-5 text-foreground-muted">
+          Keluar dari perangkat ini. Kalau kamu merasa pernah masuk dari
+          perangkat lain, ganti kata sandi lewat halaman lupa akses.
+        </p>
+        <form action={signOutAction}>
+          <button
+            type="submit"
+            className="inline-flex h-9 items-center rounded-lg border border-border-strong bg-surface px-3 text-sm font-medium text-foreground transition-colors duration-150 ease-out hover:bg-surface-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            Keluar dari akun
+          </button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function ProfilPage() {
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
-      <PageHeader
-        eyebrow="Akun"
-        title="Profil"
-        description="Identitas, keamanan, dan pengaturan datamu terkumpul di sini."
-      />
-      <IdentityCard />
-      <DocumentsCard />
-      <SecurityCard />
-      <DataRightsCard />
-    </main>
+    <PageShell
+      eyebrow="Akun"
+      title="Profil"
+      description="Identitas, keamanan, dan pengaturan datamu terkumpul di sini."
+    >
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-4">
+          <IdentityCard />
+          <DocumentsCard />
+        </div>
+        <aside className="flex min-w-0 flex-col gap-4">
+          <SecurityCard />
+          <DataRightsCard />
+          <SignOutCard />
+        </aside>
+      </div>
+    </PageShell>
   );
 }

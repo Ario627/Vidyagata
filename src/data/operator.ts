@@ -54,6 +54,101 @@ export type OperatorWriteResult =
   | { readonly ok: true }
   | { readonly ok: false; readonly code: string };
 
+export type AuditTrailItem = {
+  readonly id: string;
+  readonly action: string;
+  readonly actorType: string;
+  readonly actorName: string | null;
+  readonly entityType: string;
+  readonly entityId: string;
+  readonly reason: string | null;
+  readonly occurredAt: string;
+  readonly hasBefore: boolean;
+  readonly hasAfter: boolean;
+};
+
+export type OperatorOverview = {
+  readonly pendingCount: number;
+  readonly inReviewCount: number;
+  readonly queuedAmount: Rupiah;
+  readonly oldestWaitingSince: string | null;
+  readonly claimedByMeCount: number;
+};
+
+type AuditTrailRow = {
+  id: string;
+  action: string;
+  actor_type: string;
+  actor_name: string | null;
+  entity_type: string;
+  entity_id: string;
+  reason: string | null;
+  occurred_at: string;
+  has_before: number;
+  has_after: number;
+};
+
+const SELECT_AUDIT_TRAIL = `SELECT a.id, a.action, a.actor_type,
+  u.name AS actor_name, a.entity_type, a.entity_id, a.reason, a.occurred_at,
+  CASE WHEN a.before_json IS NULL THEN 0 ELSE 1 END AS has_before,
+  CASE WHEN a.after_json IS NULL THEN 0 ELSE 1 END AS has_after
+FROM audit_logs a
+LEFT JOIN "user" u ON u.id = a.actor_id
+WHERE (? = '' OR a.action LIKE ? OR a.entity_type LIKE ? OR a.entity_id LIKE ?)
+ORDER BY a.occurred_at DESC, a.id DESC
+LIMIT ?`;
+
+export async function listAuditTrail(
+  input: { readonly query?: string; readonly limit?: number } = {},
+): Promise<readonly AuditTrailItem[]> {
+  await requireRole("operator");
+  const query = (input.query ?? "").trim().slice(0, 60);
+  const pattern = `%${query}%`;
+  const limit = Math.min(Math.max(input.limit ?? 80, 1), 200);
+  const rows = (await db
+    .prepare(SELECT_AUDIT_TRAIL)
+    .all(query, pattern, pattern, pattern, limit)) as
+    | AuditTrailRow[]
+    | undefined;
+  return (rows ?? []).map((row) => ({
+    id: row.id,
+    action: row.action,
+    actorType: row.actor_type,
+    actorName: row.actor_name,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    reason: row.reason,
+    occurredAt: row.occurred_at,
+    hasBefore: row.has_before === 1,
+    hasAfter: row.has_after === 1,
+  }));
+}
+
+export async function getOperatorOverview(): Promise<OperatorOverview> {
+  await requireRole("operator");
+  const queue = await listReviewQueue();
+  const pending = queue.filter((item) => item.status === "submitted");
+  const inReview = queue.filter((item) => item.status === "under_review");
+  const queuedAmount = pending.reduce(
+    (total, item) => total + (item.requestedAmount ?? 0),
+    0,
+  );
+  const oldest = pending.reduce<string | null>((earliest, item) => {
+    if (item.submittedAt === null) return earliest;
+    if (earliest === null) return item.submittedAt;
+    return item.submittedAt < earliest ? item.submittedAt : earliest;
+  }, null);
+  return {
+    pendingCount: pending.length,
+    inReviewCount: inReview.length,
+    queuedAmount: rupiah(queuedAmount),
+    oldestWaitingSince: oldest,
+    claimedByMeCount: queue.filter(
+      (item) => item.status === "under_review" && item.claimedByMe,
+    ).length,
+  };
+}
+
 type QueueRow = {
   id: string;
   public_ref: string;

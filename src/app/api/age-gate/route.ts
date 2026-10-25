@@ -6,6 +6,7 @@ import {
   purgeStaleAgeBans,
   recordAgeBan,
 } from "@/lib/age-ban";
+import { enforceRateLimit } from "@/lib/http/rate-limit";
 import { BirthdateInput } from "@/schemas/onboarding";
 
 const MAX_BODY_BYTES = 1024;
@@ -59,6 +60,12 @@ export async function POST(request: Request) {
       { status: 403 },
     );
   }
+  const limited = await enforceRateLimit(request, {
+    name: "age-gate",
+    limit: 15,
+    windowSeconds: 600,
+  });
+  if (limited !== null) return limited;
   const raw = await request.text();
   if (raw.length > MAX_BODY_BYTES) {
     return NextResponse.json(

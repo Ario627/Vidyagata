@@ -25,7 +25,7 @@ export const instant = false;
 
 function Shell({ children }: { readonly children: ReactNode }) {
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
+    <main className="mx-auto flex w-full max-w-2xl flex-col px-4 py-6 sm:px-6 lg:py-8">
       {children}
     </main>
   );

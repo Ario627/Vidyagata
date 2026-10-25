@@ -1,35 +1,9 @@
 "use client";
 
-import {
-  Briefcase,
-  House,
-  type LucideIcon,
-  ReceiptText,
-  UserRound,
-  Wallet,
-} from "lucide-react";
-import type { Route } from "next";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { isNavActive, MOBILE_NAV_ITEMS } from "@/components/app/nav-config";
 import { cn } from "@/lib/utils";
-
-type NavItem = {
-  readonly href: Route;
-  readonly label: string;
-  readonly icon: LucideIcon;
-};
-
-const NAV_ITEMS: readonly NavItem[] = [
-  { href: "/dashboard" as Route, label: "Beranda", icon: House },
-  { href: "/pembiayaan" as Route, label: "Pembiayaan", icon: Wallet },
-  { href: "/kerja", label: "Kerja", icon: Briefcase },
-  { href: "/tagihan", label: "Tagihan", icon: ReceiptText },
-  { href: "/profil", label: "Profil", icon: UserRound },
-];
-
-function isActivePath(pathname: string, href: string): boolean {
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
 
 function BottomNav({ className }: { className?: string }) {
   const pathname = usePathname();
@@ -39,39 +13,40 @@ function BottomNav({ className }: { className?: string }) {
       data-slot="bottom-nav"
       aria-label="Navigasi utama"
       className={cn(
-        "sticky bottom-0 z-40 border-border border-t bg-surface pb-safe print:hidden",
+        "sticky bottom-0 z-40 border-border border-t bg-surface/95 pb-safe backdrop-blur-md print:hidden",
         className,
       )}
     >
-      <ul className="mx-auto flex max-w-lg items-stretch">
-        {NAV_ITEMS.map((item) => {
-          const active = isActivePath(pathname, item.href);
+      <ul className="mx-auto flex max-w-lg items-stretch px-1">
+        {MOBILE_NAV_ITEMS.map((item) => {
+          const active = isNavActive(pathname, item);
           return (
             <li key={item.href} className="flex-1">
               <Link
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-h-14 flex-col items-center justify-center gap-1 px-1 pt-1.5",
+                  "flex min-h-[3.75rem] flex-col items-center justify-center gap-1 rounded-lg px-1 pt-1.5 pb-1",
+                  "transition-colors duration-150 ease-out",
                   "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary",
-                  active ? "text-primary" : "text-foreground-muted",
+                  active ? "text-primary" : "text-foreground-subtle",
                 )}
               >
                 <span
-                  aria-hidden="true"
                   className={cn(
-                    "h-0.5 w-8 rounded-full",
-                    active ? "bg-primary" : "bg-transparent",
+                    "grid h-7 w-12 place-items-center rounded-full transition-colors duration-150 ease-out",
+                    active ? "bg-brand-50" : "bg-transparent",
                   )}
-                />
-                <item.icon
-                  aria-hidden="true"
-                  strokeWidth={active ? 2.2 : 1.8}
-                  className="size-5 shrink-0"
-                />
+                >
+                  <item.icon
+                    aria-hidden="true"
+                    strokeWidth={active ? 2.1 : 1.7}
+                    className="size-[1.15rem] shrink-0"
+                  />
+                </span>
                 <span
                   className={cn(
-                    "text-2xs leading-3",
+                    "text-[0.625rem] leading-3 tracking-tight",
                     active ? "font-semibold" : "font-medium",
                   )}
                 >
@@ -86,4 +61,4 @@ function BottomNav({ className }: { className?: string }) {
   );
 }
 
-export { BottomNav, isActivePath };
+export { BottomNav };

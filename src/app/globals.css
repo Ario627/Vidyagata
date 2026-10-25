@@ -47,6 +47,11 @@
   --color-chart-4: oklch(0.64 0.12 220);
   --color-chart-5: oklch(0.66 0.14 78);
 
+  --color-sidebar: oklch(0.21 0.027 258);
+  --color-sidebar-raised: oklch(0.26 0.03 258);
+  --color-sidebar-line: oklch(0.32 0.03 258);
+  --color-sidebar-muted: oklch(0.72 0.018 258);
+
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
   --radius-lg: 1rem;
@@ -59,6 +64,12 @@
   --shadow-raised:
     0 2px 4px -1px oklch(0.2 0.02 254 / 0.06),
     0 4px 8px -2px oklch(0.2 0.02 254 / 0.08);
+  --shadow-panel:
+    0 1px 0 0 oklch(0.2 0.02 254 / 0.05),
+    0 12px 32px -12px oklch(0.2 0.02 254 / 0.18);
+  --shadow-float:
+    0 18px 48px -18px oklch(0.2 0.02 254 / 0.28),
+    0 2px 6px -2px oklch(0.2 0.02 254 / 0.1);
 
   --text-2xs: 0.6875rem;
   --text-2xs--line-height: 1rem;
@@ -75,10 +86,11 @@
 }
 
 @theme {
-  --color-background: var(--color-ink-50);
+  --color-background: oklch(0.972 0.004 254);
   --color-surface: oklch(1 0 0);
   --color-surface-raised: var(--color-ink-100);
-  --color-border: var(--color-ink-200);
+  --color-surface-sunken: oklch(0.958 0.006 254);
+  --color-border: oklch(0.912 0.007 254);
   --color-border-strong: var(--color-ink-400);
 
   --color-foreground: var(--color-ink-800);
@@ -115,11 +127,36 @@
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
+    font-feature-settings:
+      "ss01" 1,
+      "cv11" 1;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 9999px;
+    background-clip: content-box;
+    background-color: var(--color-ink-300);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-ink-400);
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
   }
 
   :focus-visible {
@@ -154,6 +191,37 @@
 
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+@utility bg-ledger {
+  background-image:
+    linear-gradient(to right, oklch(0.55 0.02 254 / 0.055) 1px, transparent 1px),
+    linear-gradient(
+      to bottom,
+      oklch(0.55 0.02 254 / 0.055) 1px,
+      transparent 1px
+    );
+  background-size: 28px 28px;
+}
+
+@utility bg-ledger-dark {
+  background-image:
+    linear-gradient(to right, oklch(1 0 0 / 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, oklch(1 0 0 / 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility text-display {
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
 }
 
 @keyframes mascot-float {
@@ -198,6 +266,19 @@
   }
 }
 
+@keyframes sheen-in {
+  from {
+    opacity: 0;
+    translate: 0 14px;
+    scale: 0.995;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+    scale: 1;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .mascot-float {
     animation: mascot-float 5.5s ease-in-out infinite;
@@ -215,6 +296,14 @@
   .card-rise {
     animation: rise-in 400ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
+
+  .panel-in {
+    animation: sheen-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  .panel-in-delayed {
+    animation: sheen-in 520ms cubic-bezier(0.22, 1, 0.36, 1) 90ms both;
+  }
 }
 
 @media print {
@@ -230,6 +319,23 @@
 
   body {
     background: #ffffff;
+  }
+
+  [data-slot="app-sidebar"],
+  [data-slot="app-topbar"],
+  [data-slot="mobile-topbar"],
+  [data-slot="operator-sidebar"],
+  [data-slot="operator-topbar"],
+  [data-slot="operator-header"],
+  [data-slot="bottom-nav"] {
+    display: none !important;
+  }
+
+  .statement-sheet {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
   }
 
   .statement-sheet {

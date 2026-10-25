@@ -57,7 +57,7 @@ export default async function PencairanInitiatePage({
       ? undefined
       : DISBURSEMENT_STATUS_META[detail.latestRequest.status];
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
+    <main className="mx-auto flex w-full max-w-3xl flex-col px-4 py-6 sm:px-6 lg:py-8">
       <PageHeader
         eyebrow={detail.publicRef}
         title={amount === null ? "Pencairan" : formatIDR(amount)}

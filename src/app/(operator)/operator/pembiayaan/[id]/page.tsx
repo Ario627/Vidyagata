@@ -101,7 +101,7 @@ export default async function OperatorReviewPage({
       : (detail.studentGpaHundredths / 100).toFixed(2).replace(".", ",");
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
+    <main className="mx-auto flex w-full max-w-[76rem] flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <PageHeader
         eyebrow={detail.publicRef}
         title={

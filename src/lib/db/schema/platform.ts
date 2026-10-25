@@ -98,4 +98,16 @@ BEGIN
 END;
 `;
 
-export const PLATFORM_SCHEMA = `${AUDIT_LOGS}\n${CONSENTS}\n${CONSENT_RECORDS}`;
+const API_RATE_LIMITS = `
+CREATE TABLE IF NOT EXISTS api_rate_limits (
+  bucket TEXT NOT NULL,
+  window_start TEXT NOT NULL,
+  hits INTEGER NOT NULL CHECK (hits >= 0),
+  expires_at TEXT NOT NULL,
+  PRIMARY KEY (bucket, window_start)
+);
+CREATE INDEX IF NOT EXISTS idx_api_rate_limits_expires
+  ON api_rate_limits (expires_at);
+`;
+
+export const PLATFORM_SCHEMA = `${AUDIT_LOGS}\n${CONSENTS}\n${CONSENT_RECORDS}\n${API_RATE_LIMITS}`;

@@ -4,21 +4,14 @@ import {
   type StatementState,
   signMyStatement,
 } from "@/data/documents";
+import { enforceRateLimit, isSameOrigin } from "@/lib/http/rate-limit";
 import { getCurrentUser } from "@/lib/session";
 
 const SIGNATURE_PREFIX = "data:image/png;base64,";
 const MAX_SIGNATURE_DATA_URL = 200_000;
 
 function sameOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
-  if (origin === null) return false;
-  const host = request.headers.get("host");
-  if (host === null) return false;
-  try {
-    return new URL(origin).host === host;
-  } catch {
-    return false;
-  }
+  return isSameOrigin(request);
 }
 
 function decodeSignatureImage(value: unknown): Uint8Array | null {
@@ -57,6 +50,12 @@ export async function POST(request: NextRequest) {
       { status: 401 },
     );
   }
+  const limited = await enforceRateLimit(
+    request,
+    { name: "statement-sign", limit: 10, windowSeconds: 600 },
+    user.id,
+  );
+  if (limited !== null) return limited;
   let payload: { signatureImage?: unknown };
   try {
     payload = (await request.json()) as { signatureImage?: unknown };

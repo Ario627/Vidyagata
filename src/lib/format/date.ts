@@ -74,3 +74,11 @@ export function formatPlainDateShort(date: PlainDate): string {
 export function formatInstantWib(instant: Date | string): string {
   return `${format(toWibDate(instant), INSTANT, { locale: localeId })} WIB`;
 }
+
+export function formatMonthWib(instant: Date | string): string {
+  return format(toWibDate(instant), "MMMM yyyy", { locale: localeId });
+}
+
+export function formatDayWib(instant: Date | string): string {
+  return format(toWibDate(instant), "d MMM yyyy", { locale: localeId });
+}

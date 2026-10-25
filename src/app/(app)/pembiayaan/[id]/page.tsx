@@ -1,7 +1,7 @@
 import type { Metadata, Route } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PageHeader } from "@/components/app/page-header";
+import { PageShell } from "@/components/app/page-shell";
 import { CancelFacility } from "@/components/financing/cancel-facility";
 import { PURPOSE_LABELS, STATUS_META } from "@/components/financing/labels";
 import { StatusTimeline } from "@/components/financing/status-timeline";
@@ -48,9 +48,7 @@ function InfoRow({
 
 export default async function FacilityDetailPage({
   params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+}: PageProps<"/pembiayaan/[id]">) {
   await requireUser();
   const { id } = await params;
   const detail = await getMyFacilityTimeline(id);
@@ -79,89 +77,125 @@ export default async function FacilityDetailPage({
   const canCancel = canTransition(facility.status, "cancelled", "user");
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
-      <PageHeader
-        eyebrow={facility.publicRef}
-        title={
-          facility.requestedAmount === null
-            ? "Pengajuan pembiayaan"
-            : formatIDR(facility.requestedAmount)
-        }
-        description="Statusnya selalu jujur di sini — tanpa istilah yang menyamarkan."
-      />
-      <div className="mt-3 flex items-center gap-2">
-        <Badge variant={meta.variant}>{meta.label}</Badge>
-        <span className="text-xs text-foreground-subtle">
-          dibuat {formatInstantWib(facility.createdAt)}
-        </span>
-      </div>
-      <Card className="mt-6">
-        <CardContent>
-          <CardTitle>Ringkasan</CardTitle>
-        </CardContent>
-        <CardContent>
-          <dl className="flex flex-col divide-y divide-border">
-            <InfoRow
-              label="Kampus tujuan"
-              value={institutionName ?? "Belum dipilih"}
-            />
-            <InfoRow
-              label="Tujuan pembiayaan"
-              value={
-                facility.academicPurpose === null
-                  ? "Belum dipilih"
-                  : PURPOSE_LABELS[facility.academicPurpose]
-              }
-            />
-            {facility.approvedAmount === null ? null : (
-              <InfoRow
-                label="Nominal disetujui"
-                value={formatIDR(facility.approvedAmount)}
-              />
-            )}
-            {facility.tenorMonths === null ? null : (
-              <InfoRow label="Tenor" value={`${facility.tenorMonths} bulan`} />
-            )}
-            {facility.annualMarginRateBp === null ? null : (
-              <InfoRow
-                label="Margin"
-                value={`${formatPercentFromBp(facility.annualMarginRateBp)} per tahun`}
-              />
-            )}
-            {facility.serviceFeeRateBp === null ? null : (
-              <InfoRow
-                label="Biaya layanan"
-                value={`${formatPercentFromBp(facility.serviceFeeRateBp)} (sekali)`}
-              />
-            )}
-          </dl>
-        </CardContent>
-      </Card>
-      <Card className="mt-4">
-        <CardContent>
-          <CardTitle>Perjalanan pengajuan</CardTitle>
-        </CardContent>
-        <CardContent>
-          <StatusTimeline steps={steps} />
-        </CardContent>
-      </Card>
-      <div className="mt-4 flex flex-col gap-2">
+    <PageShell
+      eyebrow={facility.publicRef}
+      title={
+        facility.requestedAmount === null
+          ? "Pengajuan pembiayaan"
+          : formatIDR(facility.requestedAmount)
+      }
+      description="Statusnya selalu jujur di sini — tanpa istilah yang menyamarkan."
+      actions={
         <Link
           href={"/pembiayaan" as Route}
-          className={cn(
-            buttonVariants({ variant: "secondary", size: "lg" }),
-            "w-full",
-          )}
+          className={buttonVariants({ variant: "secondary", size: "md" })}
         >
           Kembali ke daftar
         </Link>
-        {canCancel ? (
-          <CancelFacility
-            facilityId={facility.id}
-            publicRef={facility.publicRef}
-          />
-        ) : null}
+      }
+    >
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant={meta.variant}>{meta.label}</Badge>
+            <span className="text-xs text-foreground-subtle">
+              dibuat {formatInstantWib(facility.createdAt)}
+            </span>
+          </div>
+          <Card className="gap-0 shadow-none">
+            <CardContent className="pb-2">
+              <CardTitle>Ringkasan</CardTitle>
+            </CardContent>
+            <CardContent>
+              <dl className="flex flex-col divide-y divide-border">
+                <InfoRow
+                  label="Kampus tujuan"
+                  value={institutionName ?? "Belum dipilih"}
+                />
+                <InfoRow
+                  label="Tujuan pembiayaan"
+                  value={
+                    facility.academicPurpose === null
+                      ? "Belum dipilih"
+                      : PURPOSE_LABELS[facility.academicPurpose]
+                  }
+                />
+                {facility.approvedAmount === null ? null : (
+                  <InfoRow
+                    label="Nominal disetujui"
+                    value={formatIDR(facility.approvedAmount)}
+                  />
+                )}
+                {facility.tenorMonths === null ? null : (
+                  <InfoRow
+                    label="Tenor"
+                    value={`${facility.tenorMonths} bulan`}
+                  />
+                )}
+                {facility.annualMarginRateBp === null ? null : (
+                  <InfoRow
+                    label="Margin"
+                    value={`${formatPercentFromBp(facility.annualMarginRateBp)} per tahun`}
+                  />
+                )}
+                {facility.serviceFeeRateBp === null ? null : (
+                  <InfoRow
+                    label="Biaya layanan"
+                    value={`${formatPercentFromBp(facility.serviceFeeRateBp)} (sekali)`}
+                  />
+                )}
+              </dl>
+            </CardContent>
+          </Card>
+          <Card className="gap-0 shadow-none">
+            <CardContent className="pb-3">
+              <CardTitle>Perjalanan pengajuan</CardTitle>
+            </CardContent>
+            <CardContent>
+              <StatusTimeline steps={steps} />
+            </CardContent>
+          </Card>
+        </div>
+        <aside className="flex min-w-0 flex-col gap-4 lg:sticky lg:top-24">
+          <Card className="gap-0 shadow-none">
+            <CardContent className="pb-2">
+              <CardTitle>Status saat ini</CardTitle>
+            </CardContent>
+            <CardContent className="flex flex-col gap-3">
+              <Badge variant={meta.variant}>{meta.label}</Badge>
+              <p className="text-xs leading-5 text-foreground-muted">
+                {facility.status === "draft"
+                  ? "Pengajuan masih draf. Kamu bisa melanjutkan kapan saja tanpa kehilangan isian."
+                  : facility.status === "submitted"
+                    ? "Pengajuan sudah masuk antrian. Petugas akan mengklaim dan meninjau dokumenmu."
+                    : facility.status === "under_review"
+                      ? "Petugas sedang memeriksa kelengkapan dan kelayakan pengajuanmu."
+                      : facility.status === "forwarded_to_lender"
+                        ? "Pengajuan sudah diteruskan ke mitra pembiayaan. Keputusan akhir ada di tangan mitra."
+                        : facility.status === "active"
+                          ? "Pembiayaan berjalan. Cicilan bisa dilihat di halaman Tagihan."
+                          : facility.status === "paid_off"
+                            ? "Semua cicilan lunas. Terima kasih sudah menyelesaikan tanggung jawabmu."
+                            : "Status terbaru tercatat di perjalanan pengajuan."}
+              </p>
+            </CardContent>
+          </Card>
+          {facility.status === "draft" ? (
+            <Link
+              href={"/pembiayaan/ajukan" as Route}
+              className={cn(buttonVariants({ size: "md" }), "w-full")}
+            >
+              Lanjutkan pengajuan
+            </Link>
+          ) : null}
+          {canCancel ? (
+            <CancelFacility
+              facilityId={facility.id}
+              publicRef={facility.publicRef}
+            />
+          ) : null}
+        </aside>
       </div>
-    </main>
+    </PageShell>
   );
 }

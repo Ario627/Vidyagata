@@ -28,7 +28,7 @@ export default async function OperatorPembayaranPage() {
   const queue = await listPaymentQueue();
 
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
+    <div className="mx-auto flex w-full max-w-[76rem] flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <PageHeader
         eyebrow="Keuangan"
         title="Verifikasi pembayaran"
@@ -41,7 +41,7 @@ export default async function OperatorPembayaranPage() {
           description="Belum ada bukti transfer yang menunggu verifikasi. Bukti baru muncul di sini begitu mahasiswa mengunggahnya dari halaman Tagihan."
         />
       ) : (
-        <div className="mt-6 flex flex-col gap-4">
+        <div className="mt-6 grid gap-4 xl:grid-cols-2">
           {queue.map((item) => (
             <Card key={item.id}>
               <CardContent className="flex flex-col gap-1">

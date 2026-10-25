@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { type SubmitPaymentError, submitMyPayment } from "@/data/payments";
+import { enforceRateLimit, isSameOrigin } from "@/lib/http/rate-limit";
 import { getCurrentUser } from "@/lib/session";
 
 const ERROR_STATUS: Readonly<Record<SubmitPaymentError, number>> = {
@@ -22,15 +23,7 @@ const ERROR_MESSAGES: Readonly<Record<SubmitPaymentError, string>> = {
 };
 
 function sameOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
-  if (origin === null) return false;
-  const host = request.headers.get("host");
-  if (host === null) return false;
-  try {
-    return new URL(origin).host === host;
-  } catch {
-    return false;
-  }
+  return isSameOrigin(request);
 }
 
 export async function POST(request: NextRequest) {
@@ -47,6 +40,12 @@ export async function POST(request: NextRequest) {
       { status: 401 },
     );
   }
+  const limited = await enforceRateLimit(
+    request,
+    { name: "payment-upload", limit: 8, windowSeconds: 600 },
+    user.id,
+  );
+  if (limited !== null) return limited;
   let form: FormData;
   try {
     form = await request.formData();

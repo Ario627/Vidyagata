@@ -3,6 +3,7 @@ import { recordAudit } from "@/data/audit";
 import { saveStudentProfile } from "@/data/students";
 import { parsePlainDate } from "@/domain/time/plain-date";
 import { db } from "@/lib/db/client";
+import { enforceRateLimit, isSameOrigin } from "@/lib/http/rate-limit";
 import { getCurrentUser } from "@/lib/session";
 import {
   ProfilePayload,
@@ -11,15 +12,7 @@ import {
 } from "@/schemas/profile";
 
 function sameOrigin(request: NextRequest): boolean {
-  const origin = request.headers.get("origin");
-  if (origin === null) return false;
-  const host = request.headers.get("host");
-  if (host === null) return false;
-  try {
-    return new URL(origin).host === host;
-  } catch {
-    return false;
-  }
+  return isSameOrigin(request);
 }
 
 async function updateUserName(userId: string, name: string): Promise<void> {
@@ -55,6 +48,12 @@ export async function POST(request: NextRequest) {
       { status: 401 },
     );
   }
+  const limited = await enforceRateLimit(
+    request,
+    { name: "profile-update", limit: 20, windowSeconds: 600 },
+    user.id,
+  );
+  if (limited !== null) return limited;
   let payload: unknown;
   try {
     payload = await request.json();

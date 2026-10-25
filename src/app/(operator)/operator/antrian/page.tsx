@@ -61,7 +61,7 @@ export default async function OperatorQueuePage() {
   const inReview = queue.filter((item) => item.status === "under_review");
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
+    <main className="mx-auto flex w-full max-w-[76rem] flex-col px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
       <PageHeader
         title="Antrian pengajuan"
         description="Urut dari yang paling lama menunggu. Klaim satu pengajuan agar bisa ditinjau."
@@ -79,7 +79,7 @@ export default async function OperatorQueuePage() {
               <h2 className="text-2xs font-semibold uppercase tracking-wider text-foreground-subtle">
                 Menunggu ditinjau · {pending.length}
               </h2>
-              <ul className="flex flex-col gap-3">
+              <ul className="grid gap-3 lg:grid-cols-2">
                 {pending.map((item) => (
                   <li key={item.id}>
                     <QueueRow item={item} />
@@ -93,7 +93,7 @@ export default async function OperatorQueuePage() {
               <h2 className="text-2xs font-semibold uppercase tracking-wider text-foreground-subtle">
                 Sedang ditinjau · {inReview.length}
               </h2>
-              <ul className="flex flex-col gap-3">
+              <ul className="grid gap-3 lg:grid-cols-2">
                 {inReview.map((item) => (
                   <li key={item.id}>
                     <QueueRow item={item} />

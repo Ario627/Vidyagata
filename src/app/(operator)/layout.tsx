@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { OperatorHeader } from "@/components/operator/operator-header";
+import { OperatorShell } from "@/components/operator/operator-shell";
 import { requireRole } from "@/data/dal";
+import { getCurrentUser } from "@/lib/session";
 
 export const instant = false;
 
@@ -10,10 +11,10 @@ export default async function OperatorLayout({
   readonly children: ReactNode;
 }) {
   await requireRole("operator");
+  const user = await getCurrentUser();
   return (
-    <div className="flex min-h-full flex-1 flex-col bg-background">
-      <OperatorHeader />
+    <OperatorShell name={user?.name ?? "Operator"} email={user?.email ?? ""}>
       {children}
-    </div>
+    </OperatorShell>
   );
 }

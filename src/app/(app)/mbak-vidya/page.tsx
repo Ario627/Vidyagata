@@ -1,7 +1,7 @@
 import { Briefcase, CalendarClock, Compass } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageHeader } from "@/components/app/page-header";
+import { PageShell } from "@/components/app/page-shell";
 import { Mascot } from "@/components/brand/brand";
 import { buttonVariants } from "@/components/ui/button-variants";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
@@ -86,28 +86,42 @@ function CapabilityCard() {
 
 export default function MbakVidyaPage() {
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
-      <PageHeader
-        title="Mbak Vidya"
-        description="Pembimbing AI yang siap membantumu job-matching."
-      />
-      <WelcomeCard />
-      <CapabilityCard />
-      <div className="mt-4 flex flex-wrap gap-2">
-        <Link href="/kerja" className={buttonVariants()}>
-          Lihat katalog kerja
-        </Link>
-        <Link
-          href="/cek-kelayakan"
-          className={buttonVariants({ variant: "secondary" })}
-        >
-          Hitung cicilan
-        </Link>
+    <PageShell
+      title="Mbak Vidya"
+      description="Pembimbing AI yang siap membantumu job-matching."
+    >
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-4">
+          <WelcomeCard />
+          <CapabilityCard />
+          <div className="flex flex-wrap gap-2">
+            <Link href="/kerja" className={buttonVariants()}>
+              Lihat katalog kerja
+            </Link>
+            <Link
+              href="/cek-kelayakan"
+              className={buttonVariants({ variant: "secondary" })}
+            >
+              Hitung cicilan
+            </Link>
+          </div>
+          <p className="px-1 text-2xs text-foreground-subtle">
+            Mbak Vidya masih disiapkan. Saat aktif, halaman ini menjadi ruang
+            percakapanmu.
+          </p>
+        </div>
+        <aside className="flex flex-col items-center gap-4 rounded-2xl border border-border bg-surface p-6">
+          <Mascot
+            name="sapa"
+            sizes="(min-width: 1024px) 240px, 180px"
+            className="mascot-float h-48 w-auto"
+          />
+          <p className="text-center text-xs leading-5 text-foreground-muted">
+            Nanti di sini kamu bisa ngobrol langsung, minta rekomendasi
+            lowongan, dan menyusun rencana cicilan.
+          </p>
+        </aside>
       </div>
-      <p className="mt-4 px-1 text-2xs text-foreground-subtle">
-        Mbak Vidya masih disiapkan. Saat aktif, halaman ini menjadi ruang
-        percakapanmu.
-      </p>
-    </main>
+    </PageShell>
   );
 }

@@ -765,4 +765,16 @@ CREATE OR REPLACE TRIGGER installment_payments_touch
 BEFORE UPDATE ON installment_payments
 FOR EACH ROW EXECUTE FUNCTION vg_touch();`,
     },
+    {
+      version: "0009_api_rate_limits",
+      statements: `CREATE TABLE IF NOT EXISTS api_rate_limits (
+  bucket text NOT NULL,
+  window_start timestamptz NOT NULL,
+  hits integer NOT NULL CHECK (hits >= 0),
+  expires_at timestamptz NOT NULL,
+  PRIMARY KEY (bucket, window_start)
+);
+CREATE INDEX IF NOT EXISTS idx_api_rate_limits_expires
+  ON api_rate_limits (expires_at);`,
+    },
   ];

@@ -4,7 +4,7 @@ import {
   type StudentProfileDefaults,
   StudentProfileForm,
 } from "@/components/account/student-profile-form";
-import { PageHeader } from "@/components/app/page-header";
+import { PageShell } from "@/components/app/page-shell";
 import { listInstitutionOptions } from "@/data/institutions";
 import { getMyStudentIdentity } from "@/data/students";
 import { requireUser } from "@/lib/session";
@@ -42,20 +42,18 @@ export default async function LengkapiProfilPage() {
   const institutions = await listInstitutionOptions();
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-col px-4 py-6">
-      <PageHeader
-        eyebrow="Profil"
-        title={identity === null ? "Lengkapi profil" : "Perbarui profil"}
-        description="Data ini dipakai untuk menilai kelayakan pembiayaan, membuat surat pernyataan, dan mencocokkan lowongan kerja yang cocok untukmu."
+    <PageShell
+      eyebrow="Profil"
+      title={identity === null ? "Lengkapi profil" : "Perbarui profil"}
+      description="Data ini dipakai untuk menilai kelayakan pembiayaan, membuat surat pernyataan, dan mencocokkan lowongan kerja yang cocok untukmu."
+      className="max-w-3xl"
+    >
+      <StudentProfileForm
+        institutions={institutions}
+        defaults={defaultsOf(identity)}
+        afterSavePath={"/profil" as Route}
+        submitLabel="Simpan profil"
       />
-      <div className="mt-6">
-        <StudentProfileForm
-          institutions={institutions}
-          defaults={defaultsOf(identity)}
-          afterSavePath={"/profil" as Route}
-          submitLabel="Simpan profil"
-        />
-      </div>
       <p className="mt-6 text-sm text-foreground-muted">
         <Link
           href={"/profil" as Route}
@@ -64,6 +62,6 @@ export default async function LengkapiProfilPage() {
           Kembali ke profil
         </Link>
       </p>
-    </main>
+    </PageShell>
   );
 }
